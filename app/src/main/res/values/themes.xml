@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.MyMusic" parent="android:Theme.DeviceDefault.NoActionBar">
+        <!-- Status bar and navigation bar colors -->
+        <item name="android:statusBarColor">#121212</item>
+        <item name="android:navigationBarColor">#121212</item>
+    </style>
+</resources>

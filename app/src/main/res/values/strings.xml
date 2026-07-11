@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">MyMusic</string>
+    <string name="youtube_restricted_mode_enabled">youtube_restricted_mode_enabled</string>
+</resources>
