@@ -94,11 +94,11 @@ $env:JAVA_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\jdk"
 $env:ANDROID_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\android-sdk"
 
 # Run Gradle Build
-$buildResult = Start-Process -FilePath ".\gradlew.bat" -ArgumentList "assembleRelease" -NoNewWindow -Wait -PassThru
-if ($buildResult.ExitCode -ne 0) {
+.\gradlew.bat assembleRelease
+if ($LASTEXITCODE -ne 0) {
     # Revert gradle version changes on failure
     Set-Content $gradlePath (Get-Content $gradlePath -Raw -replace "versionCode $newCode", "versionCode $currentCode" -replace "versionName `"$newName`"", "versionName `"$currentName`"")
-    Write-Error "Gradle build failed with exit code $($buildResult.ExitCode)"
+    Write-Error "Gradle build failed with exit code $LASTEXITCODE"
 }
 
 $apkPath = "app/build/outputs/apk/release/app-release.apk"
