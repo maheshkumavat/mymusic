@@ -120,14 +120,22 @@ git add .gitignore app/build.gradle $updateManagerPath
 git commit -m "Bump version to v$newName"
 git tag "v$newName"
 
-# Attempt to push to remote (this might fail if remote isn't set up yet, which we catch gracefully)
+# Configure remote URL with GITHUB_TOKEN to prevent authentication prompt
+try {
+    $remoteUrl = "https://$githubOwner`:$githubToken`@github.com/$githubOwner/$githubRepo`.git"
+    # Try removing remote just in case, then add it to make sure it is updated
+    git remote remove origin 2>$null
+    git remote add origin $remoteUrl
+} catch {}
+
+# Attempt to push to remote
 Write-Host "`n[*] Pushing to GitHub..." -ForegroundColor Cyan
 try {
     git push origin main --force
     git push origin "v$newName" --force
     Write-Host "[+] Pushed successfully to GitHub remote." -ForegroundColor Green
 } catch {
-    Write-Host "[!] Could not push to origin. Ensure remote is configured: 'git remote add origin <URL>'." -ForegroundColor Yellow
+    Write-Host "[!] Could not push to origin. Ensure remote is configured correctly." -ForegroundColor Yellow
 }
 
 # Step 6: Create GitHub Release and Upload APK Asset
