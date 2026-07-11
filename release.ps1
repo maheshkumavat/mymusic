@@ -126,12 +126,12 @@ try {
     git remote add origin "https://github.com/$githubOwner/$githubRepo.git"
 } catch {}
 
-# Attempt to push to remote on-the-fly using the token in command URL
+# Attempt to push to remote securely using env-based credential helper
 Write-Host "`n[*] Pushing to GitHub..." -ForegroundColor Cyan
 try {
-    $pushUrl = "https://$githubOwner`:$githubToken`@github.com/$githubOwner/$githubRepo`.git"
-    git push $pushUrl main --force
-    git push $pushUrl "v$newName" --force
+    $gitHelper = 'credential.helper=!f() { echo username=token; echo password=$GITHUB_TOKEN; }; f'
+    git -c $gitHelper push origin main --force
+    git -c $gitHelper push origin "v$newName" --force
     Write-Host "[+] Pushed successfully to GitHub remote." -ForegroundColor Green
 } catch {
     Write-Host "[!] Could not push to origin: $_" -ForegroundColor Yellow
