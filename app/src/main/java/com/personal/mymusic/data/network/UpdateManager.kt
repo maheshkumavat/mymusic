@@ -24,7 +24,7 @@ class UpdateManager(
 ) {
     companion object {
         // IMPORTANT: Change these to match your GitHub repository
-        const val GITHUB_OWNER = "mahesh-git" // Please update this to your real GitHub username
+        const val GITHUB_OWNER = "maheshkumavat" // Please update this to your real GitHub username
         const val GITHUB_REPO = "mymusic"
         
         private var activeDownloadId: Long = -1L
