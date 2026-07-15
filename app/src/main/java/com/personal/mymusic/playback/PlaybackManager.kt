@@ -21,7 +21,8 @@ import androidx.media3.session.SessionCommand
 
 class PlaybackManager(
     private val context: Context,
-    private val newPipeService: NewPipeService
+    private val newPipeService: NewPipeService,
+    private val playlistDao: com.personal.mymusic.data.database.PlaylistDao
 ) {
     private val controllerDeferred = CompletableDeferred<MediaController>()
 
@@ -120,6 +121,33 @@ class PlaybackManager(
                 _duration.value = controller.duration.coerceAtLeast(0)
                 triggerPrefetchNextSong()
                 checkAndTriggerAutoplay()
+                
+                // Log playback to database when media item transitions
+                if (mediaItem != null) {
+                    val songId = mediaItem.mediaId
+                    val title = mediaItem.mediaMetadata.title?.toString() ?: ""
+                    val channel = mediaItem.mediaMetadata.artist?.toString() ?: ""
+                    val thumbnailUrl = mediaItem.mediaMetadata.artworkUri?.toString() ?: ""
+                    val duration = controller.duration.coerceAtLeast(0) / 1000
+
+                    if (songId.isNotEmpty() && title.isNotEmpty()) {
+                        scope.launch(Dispatchers.IO) {
+                            try {
+                                playlistDao.logPlay(
+                                    com.personal.mymusic.data.database.SongEntity(
+                                        id = songId,
+                                        title = title,
+                                        channel = channel,
+                                        durationSeconds = duration,
+                                        thumbnailUrl = thumbnailUrl
+                                    )
+                                )
+                            } catch (e: Exception) {
+                                android.util.Log.e("PlaybackManager", "Failed to log play to history", e)
+                            }
+                        }
+                    }
+                }
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {

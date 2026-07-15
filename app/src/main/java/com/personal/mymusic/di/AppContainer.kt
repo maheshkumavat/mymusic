@@ -35,4 +35,8 @@ class AppContainer(private val context: Context) {
     val updateManager: com.personal.mymusic.data.network.UpdateManager by lazy {
         com.personal.mymusic.data.network.UpdateManager(context, okHttpClient)
     }
+
+    val playbackManager: com.personal.mymusic.playback.PlaybackManager by lazy {
+        com.personal.mymusic.playback.PlaybackManager(context, newPipeService, playlistDao)
+    }
 }

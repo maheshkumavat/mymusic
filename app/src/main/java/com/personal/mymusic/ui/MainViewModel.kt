@@ -59,6 +59,23 @@ class MainViewModel(
         .map { list -> list.map { it.id }.toSet() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
+    val recentlyPlayed: StateFlow<List<Song>> = playlistDao.getRecentlyPlayed(20)
+        .map { list -> list.map { it.toDomainSong() } }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val mostPlayedSongs: StateFlow<List<Song>> = playlistDao.getMostPlayedSongs(20)
+        .map { list -> list.map { it.toDomainSong() } }
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    val mostPlayedArtists: StateFlow<List<String>> = playlistDao.getMostPlayedArtists(10)
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun removeSongFromHistory(songId: String) {
+        viewModelScope.launch {
+            playlistDao.deletePlayHistorySong(songId)
+        }
+    }
+
     private val _selectedPlaylistId = MutableStateFlow<Long?>(null)
     val selectedPlaylistId: StateFlow<Long?> = _selectedPlaylistId.asStateFlow()
 
@@ -383,6 +400,14 @@ class MainViewModel(
     )
 
     private fun Song.toEntity() = SongEntity(
+        id = id,
+        title = title,
+        channel = channel,
+        durationSeconds = durationSeconds,
+        thumbnailUrl = thumbnailUrl
+    )
+
+    private fun com.personal.mymusic.data.database.PlayHistoryEntity.toDomainSong() = Song(
         id = id,
         title = title,
         channel = channel,

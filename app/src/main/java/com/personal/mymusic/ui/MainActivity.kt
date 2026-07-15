@@ -59,7 +59,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val app = application as MyApplication
-        playbackManager = PlaybackManager(applicationContext, app.container.newPipeService)
+        playbackManager = app.container.playbackManager
 
         val factory = MainViewModelFactory(
             application = app,

@@ -111,6 +111,43 @@ interface PlaylistDao {
 
     @Query("SELECT * FROM search_history ORDER BY timestamp DESC LIMIT 10")
     fun getRecentSearches(): Flow<List<SearchHistoryEntity>>
+
+    // Play History Operations
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPlayHistoryIgnore(playHistory: PlayHistoryEntity): Long
+
+    @Query("UPDATE play_history SET playCount = playCount + 1, timestamp = :timestamp WHERE id = :id")
+    suspend fun incrementPlayCount(id: String, timestamp: Long)
+
+    @Transaction
+    suspend fun logPlay(song: SongEntity) {
+        val timestamp = System.currentTimeMillis()
+        val playHistory = PlayHistoryEntity(
+            id = song.id,
+            title = song.title,
+            channel = song.channel,
+            durationSeconds = song.durationSeconds,
+            thumbnailUrl = song.thumbnailUrl,
+            timestamp = timestamp,
+            playCount = 1
+        )
+        val result = insertPlayHistoryIgnore(playHistory)
+        if (result == -1L) {
+            incrementPlayCount(song.id, timestamp)
+        }
+    }
+
+    @Query("SELECT * FROM play_history ORDER BY timestamp DESC LIMIT :limit")
+    fun getRecentlyPlayed(limit: Int = 10): Flow<List<PlayHistoryEntity>>
+
+    @Query("SELECT * FROM play_history ORDER BY playCount DESC LIMIT :limit")
+    fun getMostPlayedSongs(limit: Int = 10): Flow<List<PlayHistoryEntity>>
+
+    @Query("SELECT channel FROM play_history GROUP BY channel ORDER BY SUM(playCount) DESC LIMIT :limit")
+    fun getMostPlayedArtists(limit: Int = 10): Flow<List<String>>
+
+    @Query("DELETE FROM play_history WHERE id = :songId")
+    suspend fun deletePlayHistorySong(songId: String)
 }
 
 @Entity(tableName = "search_history")
@@ -119,7 +156,18 @@ data class SearchHistoryEntity(
     val timestamp: Long = System.currentTimeMillis()
 )
 
-@Database(entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongCrossRef::class, SearchHistoryEntity::class], version = 2, exportSchema = false)
+@Entity(tableName = "play_history")
+data class PlayHistoryEntity(
+    @PrimaryKey val id: String, // YouTube Video ID
+    val title: String,
+    val channel: String,
+    val durationSeconds: Long,
+    val thumbnailUrl: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val playCount: Int = 1
+)
+
+@Database(entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongCrossRef::class, SearchHistoryEntity::class, PlayHistoryEntity::class], version = 3, exportSchema = false)
 abstract class MusicDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
 
