@@ -1,9 +1,14 @@
 package com.personal.mymusic.ui
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
+import android.net.Uri
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -64,9 +69,92 @@ class MainActivity : ComponentActivity() {
         )
         viewModel = ViewModelProvider(this, factory)[MainViewModel::class.java]
 
+        val openNowPlaying = intent?.getBooleanExtra("open_now_playing", false) ?: false
+        if (openNowPlaying) {
+            viewModel.setPlayerExpanded(true)
+        }
+
         setContent {
-            var currentScreen by remember { mutableStateOf<AppScreen>(AppScreen.Search) }
-            var isPlayerExpanded by remember { mutableStateOf(false) }
+            val currentScreen by viewModel.currentScreen.collectAsState()
+            val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
+            
+            BackHandler(enabled = isPlayerExpanded) {
+                viewModel.setPlayerExpanded(false)
+            }
+            BackHandler(enabled = !isPlayerExpanded && currentScreen is AppScreen.PlaylistDetails) {
+                viewModel.navigateTo(AppScreen.Library)
+            }
+            
+            var showBatteryOptDialog by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) {
+                val prefs = getSharedPreferences("music_prefs", MODE_PRIVATE)
+                val alreadyPrompted = prefs.getBoolean("battery_opt_prompted", false)
+                if (!alreadyPrompted) {
+                    val pm = getSystemService(POWER_SERVICE) as PowerManager
+                    val isIgnoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        pm.isIgnoringBatteryOptimizations(packageName)
+                    } else {
+                        true
+                    }
+                    if (!isIgnoring) {
+                        val brand = Build.BRAND.lowercase()
+                        val manufacturer = Build.MANUFACTURER.lowercase()
+                        val isRestrictive = listOf("xiaomi", "oppo", "vivo", "samsung", "oneplus", "huawei", "realme", "redmi", "poco").any {
+                            brand.contains(it) || manufacturer.contains(it)
+                        }
+                        if (isRestrictive) {
+                            showBatteryOptDialog = true
+                        }
+                    }
+                }
+            }
+
+            if (showBatteryOptDialog) {
+                AlertDialog(
+                    onDismissRequest = {
+                        getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
+                        showBatteryOptDialog = false
+                    },
+                    title = { Text("Background Playback Optimization", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, color = Color.White) },
+                    text = {
+                        Text(
+                            "Your device may aggressively terminate background apps. To ensure uninterrupted background playback, please configure Battery settings to 'Unrestricted' for MyMusic.",
+                            fontFamily = InterFontFamily,
+                            color = Color.LightGray
+                        )
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
+                                showBatteryOptDialog = false
+                                try {
+                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                        data = Uri.fromParts("package", packageName, null)
+                                    }
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    // Fallback
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
+                        ) {
+                            Text("Go to Settings", color = Color.Black)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(
+                            onClick = {
+                                getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
+                                showBatteryOptDialog = false
+                            }
+                        ) {
+                            Text("Later", color = Color.White)
+                        }
+                    },
+                    containerColor = BackgroundEnd
+                )
+            }
 
             val currentSong by playbackManager.currentSong.collectAsState()
             val isPlaying by playbackManager.isPlaying.collectAsState()
@@ -178,22 +266,35 @@ class MainActivity : ComponentActivity() {
                                         isPlaying = isPlaying,
                                         progress = if (duration > 0) position.toFloat() / duration else 0f,
                                         onPlayPauseClick = { playbackManager.togglePlayPause() },
-                                        onClick = { isPlayerExpanded = true }
+                                        onClick = { viewModel.setPlayerExpanded(true) }
                                     )
                                 }
                             }
 
                             // Bottom Navigation Bar
                             NavigationBar(
-                                containerColor = BackgroundEnd.copy(alpha = 0.95f),
+                                containerColor = SurfaceGlass, // Premium frosted glass look
                                 modifier = Modifier
                                     .background(Color.Transparent)
-                                    .border(1.dp, BorderGlass, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                                    .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                                    .border(1.dp, BorderGlass, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                             ) {
                                 NavigationBarItem(
+                                    selected = currentScreen is AppScreen.Home,
+                                    onClick = { viewModel.navigateTo(AppScreen.Home) },
+                                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                                    label = { Text("Home", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = AccentColor,
+                                        selectedTextColor = AccentColor,
+                                        unselectedIconColor = Color.Gray,
+                                        unselectedTextColor = Color.Gray,
+                                        indicatorColor = Color.Transparent
+                                    )
+                                )
+                                NavigationBarItem(
                                     selected = currentScreen is AppScreen.Search,
-                                    onClick = { currentScreen = AppScreen.Search },
+                                    onClick = { viewModel.navigateTo(AppScreen.Search) },
                                     icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
                                     label = { Text("Search", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
                                     colors = NavigationBarItemDefaults.colors(
@@ -206,7 +307,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 NavigationBarItem(
                                     selected = currentScreen is AppScreen.Library || currentScreen is AppScreen.PlaylistDetails,
-                                    onClick = { currentScreen = AppScreen.Library },
+                                    onClick = { viewModel.navigateTo(AppScreen.Library) },
                                     icon = { Icon(Icons.Default.LibraryMusic, contentDescription = "Library") },
                                     label = { Text("Library", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
                                     colors = NavigationBarItemDefaults.colors(
@@ -219,7 +320,7 @@ class MainActivity : ComponentActivity() {
                                 )
                                 NavigationBarItem(
                                     selected = currentScreen is AppScreen.Settings,
-                                    onClick = { currentScreen = AppScreen.Settings },
+                                    onClick = { viewModel.navigateTo(AppScreen.Settings) },
                                     icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
                                     label = { Text("Settings", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
                                     colors = NavigationBarItemDefaults.colors(
@@ -240,17 +341,20 @@ class MainActivity : ComponentActivity() {
                             .padding(innerPadding)
                     ) {
                         when (val screen = currentScreen) {
+                            is AppScreen.Home -> HomeScreen(viewModel = viewModel, onPlaylistClick = { id, name ->
+                                viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                            })
                             is AppScreen.Search -> SearchScreen(viewModel = viewModel, onPlaylistClick = { id, name ->
-                                currentScreen = AppScreen.PlaylistDetails(id, name)
+                                viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
                             })
                             is AppScreen.Library -> LibraryScreen(viewModel = viewModel, onPlaylistClick = { id, name ->
-                                currentScreen = AppScreen.PlaylistDetails(id, name)
+                                viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
                             })
                             is AppScreen.PlaylistDetails -> PlaylistDetailsScreen(
                                 playlistId = screen.playlistId,
                                 playlistName = screen.playlistName,
                                 viewModel = viewModel,
-                                onBack = { currentScreen = AppScreen.Library }
+                                onBack = { viewModel.navigateTo(AppScreen.Library) }
                             )
                             is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
                         }
@@ -275,10 +379,19 @@ class MainActivity : ComponentActivity() {
                 ) {
                     NowPlayingScreen(
                         viewModel = viewModel,
-                        onCollapse = { isPlayerExpanded = false }
+                        onCollapse = { viewModel.setPlayerExpanded(false) }
                     )
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val openNowPlaying = intent?.getBooleanExtra("open_now_playing", false) ?: false
+        if (openNowPlaying) {
+            viewModel.setPlayerExpanded(true)
         }
     }
 
@@ -300,8 +413,8 @@ fun MiniPlayer(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp) // Match 16dp padding
-            .border(1.dp, BorderGlass, RoundedCornerShape(12.dp))
-            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, BorderGlass, RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(SurfaceGlass)
             .clickable(onClick = onClick)
     ) {
@@ -309,7 +422,7 @@ fun MiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 10.dp), // Increase horizontal padding
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AsyncImage(
@@ -318,7 +431,7 @@ fun MiniPlayer(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color.DarkGray)
                 )
 

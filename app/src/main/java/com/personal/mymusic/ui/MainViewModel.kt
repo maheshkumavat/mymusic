@@ -15,6 +15,7 @@ import com.personal.mymusic.domain.model.LyricLine
 import com.personal.mymusic.domain.model.LyricsState
 import com.personal.mymusic.MyApplication
 import com.personal.mymusic.playback.PlaybackManager
+import com.personal.mymusic.ui.screens.AppScreen
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -69,6 +70,21 @@ class MainViewModel(
             }
         }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Navigation State for Configuration Changes Retention and Deeplinking
+    private val _currentScreen = MutableStateFlow<AppScreen>(AppScreen.Home)
+    val currentScreen: StateFlow<AppScreen> = _currentScreen.asStateFlow()
+
+    private val _isPlayerExpanded = MutableStateFlow(false)
+    val isPlayerExpanded: StateFlow<Boolean> = _isPlayerExpanded.asStateFlow()
+
+    fun navigateTo(screen: AppScreen) {
+        _currentScreen.value = screen
+    }
+
+    fun setPlayerExpanded(expanded: Boolean) {
+        _isPlayerExpanded.value = expanded
+    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -227,6 +243,34 @@ class MainViewModel(
                 _searchError.value = e.message ?: "Failed to perform search"
             } finally {
                 _isSearching.value = false
+            }
+        }
+    }
+
+    fun searchAndPlaySong(query: String) {
+        viewModelScope.launch {
+            try {
+                // Set loading indicator
+                playbackManager.setCurrentlyLoadingSongId(query)
+                val results = newPipeService.search(query)
+                if (results.isNotEmpty()) {
+                    val item = results.first()
+                    val song = Song(
+                        id = item.id,
+                        title = item.title,
+                        channel = item.channel,
+                        durationSeconds = item.durationSeconds,
+                        thumbnailUrl = item.thumbnailUrl
+                    )
+                    playbackManager.playSongImmediate(song)
+                } else {
+                    android.widget.Toast.makeText(getApplication(), "No results found for $query", android.widget.Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainViewModel", "searchAndPlaySong failed for $query", e)
+                android.widget.Toast.makeText(getApplication(), "Search failed: ${e.localizedMessage}", android.widget.Toast.LENGTH_SHORT).show()
+            } finally {
+                playbackManager.setCurrentlyLoadingSongId(null)
             }
         }
     }

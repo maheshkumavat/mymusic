@@ -20,6 +20,7 @@
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.MyMusic"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
             <intent-filter>

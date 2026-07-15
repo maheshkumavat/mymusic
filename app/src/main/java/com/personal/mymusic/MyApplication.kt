@@ -11,9 +11,15 @@ import com.personal.mymusic.worker.CacheCleanupWorker
 import java.util.concurrent.TimeUnit
 
 class MyApplication : Application() {
+    companion object {
+        lateinit var instance: MyApplication
+            private set
+    }
+
     lateinit var container: AppContainer
 
     override fun onCreate() {
+        instance = this
         super.onCreate()
 
         // Set global crash handler
@@ -38,6 +44,18 @@ class MyApplication : Application() {
         
         // Initialize NewPipeExtractor with our custom OkHttp downloader
         NewPipe.init(NewPipeDownloader(container.okHttpClient), Localization("EN", "us"))
+
+        // Pre-warm SimpleCache on a background thread.
+        // CacheManager.getCache() opens a SQLite database (StandaloneDatabaseProvider) which
+        // is slow on first run. Doing it here ensures it's ready before PlaybackService starts,
+        // preventing an ANR from main-thread blocking inside PlaybackService.onCreate().
+        Thread {
+            try {
+                com.personal.mymusic.data.cache.CacheManager.getCache(applicationContext)
+            } catch (e: Exception) {
+                android.util.Log.e("MyApplication", "Cache pre-warm failed", e)
+            }
+        }.also { it.name = "CacheWarmup"; it.isDaemon = true; it.start() }
         
         // Schedule periodic cache cleanup using WorkManager
         val constraints = Constraints.Builder()

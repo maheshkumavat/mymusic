@@ -1,3 +1,4 @@
+@file:OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 package com.personal.mymusic.ui.components
 
 import androidx.compose.foundation.background
@@ -11,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import android.graphics.Typeface
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.Font
@@ -20,26 +22,55 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.personal.mymusic.R
+import com.personal.mymusic.MyApplication
 import com.personal.mymusic.domain.model.Song
 
-// Define the Inter Font Family matching Apple Music proportions
+import android.content.Context
+import androidx.compose.ui.text.font.AndroidFont
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontLoadingStrategy
+
+class AssetFont(
+    val path: String,
+    override val weight: FontWeight,
+    override val style: FontStyle = FontStyle.Normal
+) : AndroidFont(
+    loadingStrategy = FontLoadingStrategy.Blocking,
+    typefaceLoader = AssetTypefaceLoader
+) {
+}
+
+object AssetTypefaceLoader : AndroidFont.TypefaceLoader {
+    override fun loadBlocking(context: Context, font: AndroidFont): Typeface? {
+        val assetFont = font as? AssetFont ?: return null
+        return Typeface.createFromAsset(context.assets, assetFont.path)
+    }
+
+    override suspend fun awaitLoad(context: Context, font: AndroidFont): Typeface? {
+        return loadBlocking(context, font)
+    }
+}
+
+// Define the Inter Font Family — loaded from assets via custom TypefaceLoader to bypass resource system issues in release builds
 val InterFontFamily = FontFamily(
-    Font(R.font.inter_regular, FontWeight.Normal),
-    Font(R.font.inter_medium, FontWeight.Medium),
-    Font(R.font.inter_semibold, FontWeight.SemiBold),
-    Font(R.font.inter_bold, FontWeight.Bold)
+    AssetFont("fonts/inter_regular.ttf", FontWeight.Normal),
+    AssetFont("fonts/inter_medium.ttf", FontWeight.Medium),
+    AssetFont("fonts/inter_semibold.ttf", FontWeight.SemiBold),
+    AssetFont("fonts/inter_bold.ttf", FontWeight.Bold)
 )
 
-// Curated dark gradient color palette
-val BackgroundStart = Color(0xFF0F0B1E) // Deep night violet
-val BackgroundEnd = Color(0xFF07040B)   // Pure dark
-val AccentColor = Color(0xFFFF4D6D)     // Refined Coral Red
-val AccentGradientStart = Color(0xFFFF4D6D) // Brand Coral
-val AccentGradientEnd = Color(0xFFFF9E00)   // Warm Amber
-val SurfaceGlass = Color(0x15FFFFFF)    // Semi-transparent surface
-val BorderGlass = Color(0x12FFFFFF)     // Translucent thin border
+// Curated Echo Dark/Glassmorphic color palette
+val BackgroundStart = Color(0xFF000000) // Strictly OLED Black
+val BackgroundEnd = Color(0xFF000000)   // Strictly OLED Black
+val AccentColor = Color(0xFFFFB000)     // Brand Accent (Amber)
+val AccentGradientStart = Color(0xFFFFB000) // Brand Coral/Amber
+val AccentGradientEnd = Color(0xFFFF4D00)   // Warm Coral-Orange
+val SurfaceGlass = Color(0xBF121414)    // Frosted glass surface (75% opacity #121414)
+val BorderGlass = Color(0x1AFFFFFF)     // Translucent thin border (10% White)
 
+val BrandGradient = Brush.linearGradient(
+    colors = listOf(AccentGradientStart, AccentGradientEnd)
+)
 
 @Composable
 fun GradientBackground(
@@ -49,11 +80,7 @@ fun GradientBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(BackgroundStart, BackgroundEnd)
-                )
-            ),
+            .background(Color.Black), // Strictly OLED Black Canvas
         content = content
     )
 }
@@ -61,7 +88,7 @@ fun GradientBackground(
 @Composable
 fun GlassmorphicCard(
     modifier: Modifier = Modifier,
-    shape: RoundedCornerShape = RoundedCornerShape(16.dp),
+    shape: RoundedCornerShape = RoundedCornerShape(24.dp), // 24dp for rounded-xl shape
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -95,7 +122,7 @@ fun SongRow(
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .size(56.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(12.dp)) // 12dp round corners for thumbnails
                 .background(Color.DarkGray)
         )
         
@@ -109,14 +136,14 @@ fun SongRow(
                 color = Color.White,
                 fontSize = 15.sp, // Apple Music list title size
                 fontFamily = InterFontFamily,
-                fontWeight = FontWeight.Medium, // semibold -> medium
+                fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = song.channel,
-                color = Color.Gray,
+                color = Color(0xFFA0A0A0), // Echo Medium Gray
                 fontSize = 13.sp, // Apple Music list subtitle size
                 fontFamily = InterFontFamily,
                 fontWeight = FontWeight.Normal,
@@ -136,7 +163,7 @@ fun SongRow(
         } else {
             Text(
                 text = formatDuration(song.durationSeconds),
-                color = Color.LightGray,
+                color = Color(0xFFA0A0A0), // Echo Medium Gray
                 fontSize = 12.sp,
                 fontFamily = InterFontFamily
             )

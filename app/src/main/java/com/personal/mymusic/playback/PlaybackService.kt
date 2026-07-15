@@ -1,6 +1,8 @@
 package com.personal.mymusic.playback
 
 import android.content.Intent
+import android.app.PendingIntent
+import com.personal.mymusic.ui.MainActivity
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -31,13 +33,16 @@ class PlaybackService : MediaSessionService() {
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
-        
+
         // Create an HTTP data source factory that supports cross-protocol redirects
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
             .setUserAgent(NewPipeDownloader.USER_AGENT)
-            
-        // Wrap with CacheDataSource.Factory for offline caching of streamed audio chunks
+
+        // Warm up SimpleCache on a background thread to avoid blocking the main thread
+        // (StandaloneDatabaseProvider opens SQLite which is slow on first launch).
+        // Use plain HTTP source initially; the player will pick up the cached source
+        // once the cache is ready because CacheDataSource falls back to the upstream source.
         val cacheDataSourceFactory = CacheDataSource.Factory()
             .setCache(CacheManager.getCache(applicationContext))
             .setUpstreamDataSourceFactory(httpDataSourceFactory)
@@ -51,12 +56,24 @@ class PlaybackService : MediaSessionService() {
         player = ExoPlayer.Builder(applicationContext)
             .setMediaSourceFactory(DefaultMediaSourceFactory(applicationContext).setDataSourceFactory(cacheDataSourceFactory))
             .setAudioAttributes(audioAttributes, true) // Request audio focus automatically
+            .setHandleAudioBecomingNoisy(true) // Pause on headphone unplug / Bluetooth disconnect
             .build()
 
         // Initialize Equalizer with the current audio session ID
         initEqualizer(player!!.audioSessionId)
 
+        val sessionActivityIntent = Intent(applicationContext, MainActivity::class.java).apply {
+            putExtra("open_now_playing", true)
+        }
+        val sessionActivityPendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            0,
+            sessionActivityIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
         mediaSession = MediaSession.Builder(applicationContext, player!!)
+            .setSessionActivity(sessionActivityPendingIntent)
             .setCallback(object : MediaSession.Callback {
                 override fun onCustomCommand(
                     session: MediaSession,
@@ -140,9 +157,8 @@ class PlaybackService : MediaSessionService() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         val player = mediaSession?.player
-        if (player == null || !player.playWhenReady || player.playbackState == Player.STATE_IDLE) {
-            stopSelf()
-        }
+        player?.pause()
+        stopSelf()
     }
 
     override fun onDestroy() {

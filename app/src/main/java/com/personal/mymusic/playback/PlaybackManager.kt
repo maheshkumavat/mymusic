@@ -8,7 +8,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
+import android.os.Handler
+import android.os.Looper
 import com.personal.mymusic.data.network.NewPipeService
 import com.personal.mymusic.domain.model.Song
 import kotlinx.coroutines.*
@@ -26,6 +27,10 @@ class PlaybackManager(
 
     private val _currentlyLoadingSongId = MutableStateFlow<String?>(null)
     val currentlyLoadingSongId: StateFlow<String?> = _currentlyLoadingSongId.asStateFlow()
+
+    fun setCurrentlyLoadingSongId(id: String?) {
+        _currentlyLoadingSongId.value = id
+    }
 
     private val _playbackError = MutableStateFlow<String?>(null)
     val playbackError: StateFlow<String?> = _playbackError.asStateFlow()
@@ -87,7 +92,7 @@ class PlaybackManager(
                 controllerDeferred.completeExceptionally(e)
                 e.printStackTrace()
             }
-        }, MoreExecutors.directExecutor())
+        }, Handler(Looper.getMainLooper())::post)
     }
 
     private fun initController(controller: MediaController) {
