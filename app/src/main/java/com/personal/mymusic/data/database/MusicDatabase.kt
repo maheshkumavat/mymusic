@@ -45,7 +45,8 @@ data class PlaylistEntity(
 data class PlaylistSongCrossRef(
     val playlistId: Long,
     val songId: String,
-    val orderIndex: Int
+    val orderIndex: Int,
+    val addedAt: Long = System.currentTimeMillis()
 )
 
 @Dao
@@ -102,12 +103,18 @@ interface PlaylistDao {
         }
     }
 
+    @Query("SELECT addedAt FROM playlist_song_cross_ref WHERE playlistId = :playlistId AND songId = :songId LIMIT 1")
+    suspend fun getAddedAtForSong(playlistId: Long, songId: String): Long?
+
     // Search History Operations
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSearchQuery(searchQuery: SearchHistoryEntity)
 
     @Query("DELETE FROM search_history WHERE query = :query")
     suspend fun deleteSearchQuery(query: String)
+
+    @Query("DELETE FROM search_history")
+    suspend fun clearSearchHistory()
 
     @Query("SELECT * FROM search_history ORDER BY timestamp DESC LIMIT 10")
     fun getRecentSearches(): Flow<List<SearchHistoryEntity>>
@@ -146,6 +153,9 @@ interface PlaylistDao {
     @Query("SELECT channel FROM play_history GROUP BY channel ORDER BY SUM(playCount) DESC LIMIT :limit")
     fun getMostPlayedArtists(limit: Int = 10): Flow<List<String>>
 
+    @Query("DELETE FROM play_history")
+    suspend fun clearPlayHistory()
+
     @Query("DELETE FROM play_history WHERE id = :songId")
     suspend fun deletePlayHistorySong(songId: String)
 }
@@ -167,7 +177,7 @@ data class PlayHistoryEntity(
     val playCount: Int = 1
 )
 
-@Database(entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongCrossRef::class, SearchHistoryEntity::class, PlayHistoryEntity::class], version = 3, exportSchema = false)
+@Database(entities = [SongEntity::class, PlaylistEntity::class, PlaylistSongCrossRef::class, SearchHistoryEntity::class, PlayHistoryEntity::class], version = 4, exportSchema = false)
 abstract class MusicDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
 

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#18141D"/>
+      <stop offset="100%" stop-color="#09060B"/>
+    </linearGradient>
+
+    <linearGradient id="pulseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF8A00"/>
+      <stop offset="100%" stop-color="#FF5C4D"/>
+    </linearGradient>
+
+    <filter id="glow3" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Canvas -->
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#bgGrad3)" stroke="#2B2035" stroke-width="2"/>
+
+  <!-- Concentric Soundwaves / Pulse Arcs -->
+  <path d="M 120 256 A 136 136 0 0 1 392 256" fill="none" stroke="url(#pulseGrad)" stroke-width="10" stroke-linecap="round" opacity="0.3"/>
+  <path d="M 152 256 A 104 104 0 0 1 360 256" fill="none" stroke="url(#pulseGrad)" stroke-width="12" stroke-linecap="round" opacity="0.65"/>
+  <path d="M 184 256 A 72 72 0 0 1 328 256" fill="none" stroke="url(#pulseGrad)" stroke-width="14" stroke-linecap="round" filter="url(#glow3)"/>
+
+  <!-- Center Play & Music Note Hybrid -->
+  <g filter="url(#glow3)">
+    <!-- Play Triangle with Rounded Corners -->
+    <path d="M 230 190 
+             L 300 248 C 310 256, 310 264, 300 272
+             L 230 330 C 220 338, 210 330, 210 316
+             L 210 204 C 210 190, 220 182, 230 190 Z" 
+          fill="url(#pulseGrad)"/>
+  </g>
+</svg>

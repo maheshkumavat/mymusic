@@ -110,10 +110,16 @@ class PlaybackManager(
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 _isPlaying.value = isPlaying
                 if (isPlaying) {
+                    android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: audio_start (isPlaying=true) at t=${System.currentTimeMillis()}")
                     startProgressTracker()
                 } else {
                     stopProgressTracker()
                 }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                android.util.Log.e("PlaybackManager", "PLAYBACK_TIMING: ExoPlayer error occurred: ${error.message}", error)
+                _playbackError.value = "Playback error: ${error.localizedMessage}"
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
@@ -152,6 +158,14 @@ class PlaybackManager(
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 _duration.value = controller.duration.coerceAtLeast(0)
+                val stateName = when(playbackState) {
+                    Player.STATE_IDLE -> "IDLE"
+                    Player.STATE_BUFFERING -> "BUFFERING"
+                    Player.STATE_READY -> "READY"
+                    Player.STATE_ENDED -> "ENDED"
+                    else -> "UNKNOWN"
+                }
+                android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: onPlaybackStateChanged -> $stateName at t=${System.currentTimeMillis()}")
                 if (playbackState == Player.STATE_READY) {
                     triggerPrefetchNextSong()
                 }
@@ -261,6 +275,7 @@ class PlaybackManager(
                     } else {
                         player.volume = 1f
                     }
+                    checkAndTriggerAutoplay()
                 }
                 delay(500)
             }
@@ -313,31 +328,35 @@ class PlaybackManager(
     }
 
     fun playSongImmediate(song: Song) {
-        android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: tap received for ${song.title}")
+        val tapTime = System.currentTimeMillis()
+        android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: tap_received for songId=${song.id}, title='${song.title}' at t=$tapTime")
         _currentlyLoadingSongId.value = song.id
         scope.launch {
             try {
                 val player = controller ?: controllerDeferred.await()
                 _playbackError.value = null
                 
-                android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: stream URL resolution started for ${song.id}")
-                // Fetch URL if not present
+                val resStartTime = System.currentTimeMillis()
+                android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: stream_resolution_start for songId=${song.id} at t=$resStartTime (+${resStartTime - tapTime}ms from tap)")
+                
                 val streamUrl = song.streamUrl ?: newPipeService.getAudioStreamUrl(song.id)
-                android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: stream URL resolved for ${song.id}")
+                val resEndTime = System.currentTimeMillis()
+                android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: stream_resolution_end for songId=${song.id} in ${resEndTime - resStartTime}ms")
                 
                 val updatedSong = song.copy(streamUrl = streamUrl)
                 
                 withContext(Dispatchers.Main) {
+                    val prepStartTime = System.currentTimeMillis()
+                    android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: exoplayer_prepare_start at t=$prepStartTime (+${prepStartTime - tapTime}ms total)")
                     player.clearMediaItems()
                     val mediaItem = createMediaItem(updatedSong)
                     player.setMediaItem(mediaItem)
                     player.prepare()
-                    android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: ExoPlayer prepared")
                     player.play()
-                    android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: playback started")
+                    android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: exoplayer.play() called at t=${System.currentTimeMillis()}")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("PlaybackManager", "PLAYBACK_STEP: playback failed", e)
+                android.util.Log.e("PlaybackManager", "PLAYBACK_TIMING: playback failed for ${song.id}", e)
                 withContext(Dispatchers.Main) {
                     val errMsg = "Playback failed: ${e.message ?: "Unknown error"}"
                     _playbackError.value = errMsg
@@ -354,19 +373,23 @@ class PlaybackManager(
     fun playPlaylist(songs: List<Song>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
         val startSong = songs[startIndex]
-        android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: tap received for playlist, starting at ${startSong.title}")
+        val tapTime = System.currentTimeMillis()
+        android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: tap_received for playlist, starting at '${startSong.title}' (${startSong.id}) at t=$tapTime")
         _currentlyLoadingSongId.value = startSong.id
         scope.launch {
             try {
                 val player = controller ?: controllerDeferred.await()
                 _playbackError.value = null
                 
-                android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: stream URL resolution started for starting song ${startSong.id}")
-                // Resolve stream URL for the starting song immediately
+                val resStartTime = System.currentTimeMillis()
+                android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: stream_resolution_start for starting song ${startSong.id} at t=$resStartTime")
                 val startStreamUrl = startSong.streamUrl ?: newPipeService.getAudioStreamUrl(startSong.id)
-                android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: stream URL resolved for starting song ${startSong.id}")
+                val resEndTime = System.currentTimeMillis()
+                android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: stream_resolution_end for starting song ${startSong.id} in ${resEndTime - resStartTime}ms")
                 
                 withContext(Dispatchers.Main) {
+                    val prepStartTime = System.currentTimeMillis()
+                    android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: exoplayer_prepare_start at t=$prepStartTime")
                     player.clearMediaItems()
                     
                     val mediaItems = songs.mapIndexed { index, song ->
@@ -376,12 +399,11 @@ class PlaybackManager(
                     
                     player.setMediaItems(mediaItems, startIndex, 0)
                     player.prepare()
-                    android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: ExoPlayer prepared")
                     player.play()
-                    android.util.Log.d("PlaybackManager", "PLAYBACK_STEP: playback started")
+                    android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: exoplayer.play() called at t=${System.currentTimeMillis()}")
                 }
             } catch (e: Exception) {
-                android.util.Log.e("PlaybackManager", "PLAYBACK_STEP: playback failed for playlist", e)
+                android.util.Log.e("PlaybackManager", "PLAYBACK_TIMING: playback failed for playlist", e)
                 withContext(Dispatchers.Main) {
                     val errMsg = "Playback failed: ${e.message ?: "Unknown error"}"
                     _playbackError.value = errMsg
@@ -427,6 +449,13 @@ class PlaybackManager(
                 it.play()
             }
         }
+    }
+
+    fun stop() {
+        controller?.stop()
+        controller?.clearMediaItems()
+        _currentSong.value = null
+        _isPlaying.value = false
     }
 
     fun seekTo(positionMs: Long) {
@@ -568,7 +597,7 @@ class PlaybackManager(
         val player = controller ?: return
         val currentSong = _currentSong.value ?: return
         
-        if (_autoplayEnabled.value && player.currentMediaItemIndex == player.mediaItemCount - 1) {
+        if (_autoplayEnabled.value && (player.mediaItemCount - player.currentMediaItemIndex) <= 1) {
             if (lastAutoplayTriggerSongId != currentSong.id) {
                 lastAutoplayTriggerSongId = currentSong.id
                 fetchAndAppendRelatedSongs(currentSong)
@@ -580,7 +609,7 @@ class PlaybackManager(
         autoplayJob?.cancel()
         autoplayJob = scope.launch {
             try {
-                android.util.Log.d("PlaybackManager", "Autoplay: fetching related songs for: ${currentSong.title}")
+                android.util.Log.d("PlaybackManager", "Autoplay: pre-fetching related songs for: ${currentSong.title}")
                 val query = deriveRelatedQuery(currentSong)
                 android.util.Log.d("PlaybackManager", "Autoplay: search query: $query")
                 val results = newPipeService.search(query)
@@ -588,7 +617,7 @@ class PlaybackManager(
                 val filteredResults = results
                     .filter { it.id != currentSong.id } // Filter out the current song
                     
-                val topResults = filteredResults.take(5) // Take top 5 similar songs
+                val topResults = filteredResults.take(5) // Take top 3-5 similar songs
                 if (topResults.isNotEmpty()) {
                     withContext(Dispatchers.Main) {
                         val player = controller ?: return@withContext
@@ -611,6 +640,8 @@ class PlaybackManager(
                             val mediaItems = newSongs.map { createMediaItem(it) }
                             player.addMediaItems(mediaItems)
                             android.util.Log.d("PlaybackManager", "Autoplay: successfully added ${newSongs.size} songs to queue")
+                            updateQueueFromController(player)
+                            triggerPrefetchNextSong()
                         }
                     }
                 }

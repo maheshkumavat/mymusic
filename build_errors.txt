@@ -1,0 +1,60 @@
+﻿Starting a Gradle Daemon, 1 busy and 1 incompatible and 11 stopped Daemons could not be reused, use --status for details
+
+> Configure project :
+Build was configured to prefer settings repositories over project repositories but repository 'Google' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'MavenRepo' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'maven' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'Google' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'MavenRepo' was added by build file 'build.gradle'
+Build was configured to prefer settings repositories over project repositories but repository 'maven' was added by build file 'build.gradle'
+.\gradlew : Warning: SDK processing. This version only understands SDK XML versions up to 3 but an SDK XML file of 
+version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were 
+released at different times.
+At line:1 char:116
++ ... v:JAVA_HOME\bin;$env:PATH"; .\gradlew compileDebugKotlin 2>&1 | Out-S ...
++                                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Warning: SDK pr...ifferent times.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+
+> Task :app:kaptGenerateStubsDebugKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+
+> Task :app:kaptDebugKotlin UP-TO-DATE
+> Task :app:compileDebugKotlin
+w: Class androidx.media3.common.util.UnstableApi is not an opt-in requirement marker
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/MainActivity.kt:197:57 Parameter 'errMsg' is never used, could be renamed to _
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/MainActivity.kt:475:13 'LinearProgressIndicator(Float, Modifier = ..., Color = ..., Color = ..., StrokeCap = ...): Unit' is deprecated. Use the overload that takes `progress` as a lambda
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:827:5 Parameter 'onPlaylistClick' is never used
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:840:9 Variable 'recentSearches' is never used
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:841:9 Variable 'trendingFeed' is never used
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:842:9 Variable 'isTrendingLoading' is never used
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:1389:29 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:1653:9 Variable 'nowMs' is never used
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:1699:49 'ArrowBack: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.ArrowBack
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:2494:9 Variable 'sleepTimerSecs' is never used
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:2826:57 'QueueMusic: ImageVector' is deprecated. Use the AutoMirrored version at Icons.AutoMirrored.Filled.QueueMusic
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:2868:21 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:2920:25 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+w: file:///C:/Users/mahes/OneDrive/Desktop/mymusic/app/src/main/java/com/personal/mymusic/ui/screens/Screens.kt:2957:25 'Divider(Modifier = ..., Dp = ..., Color = ...): Unit' is deprecated. Renamed to HorizontalDivider
+
+BUILD SUCCESSFUL in 1m 6s
+16 actionable tasks: 3 executed, 13 up-to-date
+

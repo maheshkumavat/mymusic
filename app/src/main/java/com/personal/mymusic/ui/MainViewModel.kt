@@ -20,8 +20,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 class MainViewModel(
     application: Application,
     private val playlistDao: PlaylistDao,
@@ -31,6 +32,61 @@ class MainViewModel(
 
     private val sharedPrefs = application.getSharedPreferences("music_prefs", Application.MODE_PRIVATE)
     
+    private val _userName = MutableStateFlow(sharedPrefs.getString("user_custom_name", "Vibe") ?: "Vibe")
+    val userName: StateFlow<String> = _userName.asStateFlow()
+
+    data class GreetingState(
+        val title: String = "Good Evening 🌆",
+        val subtitle: String = "Wind down with great music"
+    )
+
+    private val _greetingState = MutableStateFlow(calculateGreetingState())
+    val greetingState: StateFlow<GreetingState> = _greetingState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            while (isActive) {
+                _greetingState.value = calculateGreetingState()
+                kotlinx.coroutines.delay(30_000L)
+            }
+        }
+    }
+
+    fun updateUserName(newName: String) {
+        val trimmed = newName.trim()
+        val nameToSave = if (trimmed.isBlank()) "Vibe" else trimmed
+        sharedPrefs.edit().putString("user_custom_name", nameToSave).apply()
+        _userName.value = nameToSave
+        _greetingState.value = calculateGreetingState()
+    }
+
+    fun refreshGreeting() {
+        _greetingState.value = calculateGreetingState()
+    }
+
+    private fun calculateGreetingState(): GreetingState {
+        val calendar = java.util.Calendar.getInstance()
+        val hour = calendar.get(java.util.Calendar.HOUR_OF_DAY)
+        val currentName = _userName.value.ifBlank { "Vibe" }
+        val isDefaultName = currentName.equals("Vibe", ignoreCase = true)
+
+        val greetingText = when (hour) {
+            in 5..11 -> if (isDefaultName) "Good Morning ☀️" else "Good Morning, $currentName ☀️"
+            in 12..16 -> if (isDefaultName) "Good Afternoon 🌤️" else "Good Afternoon, $currentName 🌤️"
+            in 17..20 -> if (isDefaultName) "Good Evening 🌆" else "Good Evening, $currentName 🌆"
+            else -> if (isDefaultName) "Good Night 🌙" else "Good Night, $currentName 🌙"
+        }
+
+        val subtitleText = when (hour) {
+            in 5..11 -> "Start your day with music"
+            in 12..16 -> "Keep the energy going"
+            in 17..20 -> "Wind down with great music"
+            else -> "Your late-night soundtrack"
+        }
+
+        return GreetingState(title = greetingText, subtitle = subtitleText)
+    }
+
     private val _cacheSizeLimitGb = MutableStateFlow(sharedPrefs.getFloat("cache_size_gb", 1.0f))
     val cacheSizeLimitGb: StateFlow<Float> = _cacheSizeLimitGb.asStateFlow()
 
@@ -76,6 +132,12 @@ class MainViewModel(
         }
     }
 
+    fun clearPlayHistory() {
+        viewModelScope.launch {
+            playlistDao.clearPlayHistory()
+        }
+    }
+
     private val _selectedPlaylistId = MutableStateFlow<Long?>(null)
     val selectedPlaylistId: StateFlow<Long?> = _selectedPlaylistId.asStateFlow()
 
@@ -95,16 +157,151 @@ class MainViewModel(
     private val _isPlayerExpanded = MutableStateFlow(false)
     val isPlayerExpanded: StateFlow<Boolean> = _isPlayerExpanded.asStateFlow()
 
+    private val _isDarkTheme = MutableStateFlow(sharedPrefs.getBoolean("is_dark_theme", false))
+    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+    fun toggleTheme() {
+        setDarkTheme(!_isDarkTheme.value)
+    }
+
+    fun setDarkTheme(enabled: Boolean) {
+        _isDarkTheme.value = enabled
+        sharedPrefs.edit().putBoolean("is_dark_theme", enabled).apply()
+    }
+
+    // Back Stack — tracks navigation history for proper back behavior
+    private val _backStack = MutableStateFlow<List<AppScreen>>(emptyList())
+    val backStack: StateFlow<List<AppScreen>> = _backStack.asStateFlow()
+
+    /**
+     * Navigate to a screen, pushing the current screen onto the back stack.
+     * Navigating to Home always resets the stack.
+     */
     fun navigateTo(screen: AppScreen) {
+        val current = _currentScreen.value
+        if (screen is AppScreen.Home) {
+            // Going to Home clears the back stack
+            _backStack.value = emptyList()
+        } else {
+            // Push current screen onto back stack (avoid duplicates at top)
+            if (current != screen) {
+                _backStack.value = _backStack.value + current
+            }
+        }
         _currentScreen.value = screen
+    }
+
+    /**
+     * Pop the back stack. Returns true if the back press was consumed.
+     * Returns false when on Home with empty stack (should exit app).
+     */
+    fun popBackStack(): Boolean {
+        if (_isPlayerExpanded.value) {
+            _isPlayerExpanded.value = false
+            return true
+        }
+        val stack = _backStack.value
+        return if (stack.isNotEmpty()) {
+            val prev = stack.last()
+            _backStack.value = stack.dropLast(1)
+            _currentScreen.value = prev
+            true
+        } else {
+            // On Home tab with no history — let app exit
+            if (_currentScreen.value is AppScreen.Home) {
+                false
+            } else {
+                // Not on Home — go to Home first
+                _backStack.value = emptyList()
+                _currentScreen.value = AppScreen.Home
+                true
+            }
+        }
     }
 
     fun setPlayerExpanded(expanded: Boolean) {
         _isPlayerExpanded.value = expanded
     }
 
+    // ---- Playlist Recommendations ----
+    private val _playlistRecommendations = MutableStateFlow<List<SearchResult>>(emptyList())
+    val playlistRecommendations: StateFlow<List<SearchResult>> = _playlistRecommendations.asStateFlow()
+
+    private val _isLoadingRecommendations = MutableStateFlow(false)
+    val isLoadingRecommendations: StateFlow<Boolean> = _isLoadingRecommendations.asStateFlow()
+
+    private var recommendationsJob: Job? = null
+
+    /**
+     * Derives artist/keyword-based search queries from the songs in a playlist
+     * and fetches recommendations via YouTube search, filtering out already-added songs.
+     */
+    fun fetchPlaylistRecommendations(songs: List<Song>) {
+        recommendationsJob?.cancel()
+        if (songs.isEmpty()) {
+            _playlistRecommendations.value = emptyList()
+            return
+        }
+        recommendationsJob = viewModelScope.launch {
+            _isLoadingRecommendations.value = true
+            try {
+                // Extract top artists (by frequency in playlist)
+                val artistCounts = songs.groupingBy { it.channel.trim() }.eachCount()
+                val topArtists = artistCounts.entries.sortedByDescending { it.value }.take(3).map { it.key }
+
+                // Keyword heuristics: detect language/genre from artist names
+                val isBollywood = topArtists.any { artist ->
+                    listOf("arijit", "pritam", "atif", "shreya", "sonu", "kumar sanu",
+                           "neha", "armaan", "jubin", "mohit").any { k -> artist.lowercase().contains(k) }
+                }
+                val isPunjabi = topArtists.any { artist ->
+                    listOf("diljit", "sidhu", "ap dhillon", "karan", "shubh", "g khan").any { k -> artist.lowercase().contains(k) }
+                }
+                val genreTag = when {
+                    isBollywood -> "hindi songs"
+                    isPunjabi -> "punjabi songs"
+                    else -> "songs"
+                }
+
+                val existingIds = songs.map { it.id }.toSet()
+                val results = mutableListOf<SearchResult>()
+
+                for (artist in topArtists) {
+                    if (!isActive) break
+                    val query = "$artist $genreTag"
+                    try {
+                        val found = newPipeService.search(query)
+                        results.addAll(found.filter { it.id !in existingIds })
+                    } catch (e: Exception) {
+                        android.util.Log.e("Recommendations", "Failed query: $query", e)
+                    }
+                }
+
+                // Deduplicate and take top 8
+                _playlistRecommendations.value = results.distinctBy { it.id }.take(8)
+            } catch (e: Exception) {
+                android.util.Log.e("Recommendations", "fetchPlaylistRecommendations failed", e)
+                _playlistRecommendations.value = emptyList()
+            } finally {
+                _isLoadingRecommendations.value = false
+            }
+        }
+    }
+
+    fun dismissRecommendation(songId: String) {
+        _playlistRecommendations.value = _playlistRecommendations.value.filter { it.id != songId }
+    }
+
+    fun clearRecommendations() {
+        recommendationsJob?.cancel()
+        _playlistRecommendations.value = emptyList()
+    }
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    private val _searchSuggestions = MutableStateFlow<List<String>>(emptyList())
+    val searchSuggestions: StateFlow<List<String>> = _searchSuggestions.asStateFlow()
 
     private val _searchResults = MutableStateFlow<List<SearchResult>>(emptyList())
     val searchResults: StateFlow<List<SearchResult>> = _searchResults.asStateFlow()
@@ -119,6 +316,12 @@ class MainViewModel(
     val recentSearches: StateFlow<List<String>> = playlistDao.getRecentSearches()
         .map { list -> list.map { it.query } }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun clearRecentSearches() {
+        viewModelScope.launch {
+            playlistDao.clearSearchHistory()
+        }
+    }
 
     // Trending Feed Suggestions
     private val _trendingFeed = MutableStateFlow<Map<String, List<SearchResult>>>(emptyMap())
@@ -186,6 +389,21 @@ class MainViewModel(
     init {
         // Automatically check for updates on startup
         checkForUpdates(isAutoCheck = true)
+
+        // Collect search query changes with debounce for live search suggestions
+        viewModelScope.launch {
+            _searchQuery
+                .debounce(300)
+                .distinctUntilChanged()
+                .collectLatest { query ->
+                    if (query.trim().length >= 2) {
+                        val suggestions = newPipeService.getSearchSuggestions(query)
+                        _searchSuggestions.value = suggestions
+                    } else {
+                        _searchSuggestions.value = emptyList()
+                    }
+                }
+        }
         
         // Apply saved cache size to CacheManager on init
         val savedGb = sharedPrefs.getFloat("cache_size_gb", 1.0f)
@@ -196,12 +414,12 @@ class MainViewModel(
         viewModelScope.launch {
             playlistDao.getAllPlaylists().collect { dbPlaylists ->
                 val liked = dbPlaylists.find { it.name == "Liked Songs" }
-                if (liked != null) {
-                    _likedPlaylistId.value = liked.id
+                val likedId = if (liked != null) {
+                    liked.id
                 } else {
-                    val newId = playlistDao.insertPlaylist(PlaylistEntity(name = "Liked Songs"))
-                    _likedPlaylistId.value = newId
+                    playlistDao.insertPlaylist(PlaylistEntity(name = "Liked Songs"))
                 }
+                _likedPlaylistId.value = likedId
             }
         }
 
@@ -240,6 +458,10 @@ class MainViewModel(
 
     fun setSearchQuery(query: String) {
         _searchQuery.value = query
+        if (query.trim().isEmpty()) {
+            _searchResults.value = emptyList()
+            _searchError.value = null
+        }
     }
 
     fun performSearch() {

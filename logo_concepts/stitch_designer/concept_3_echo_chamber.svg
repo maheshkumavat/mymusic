@@ -1,0 +1,16 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Concept 3: The Echo Chamber -->
+  <rect x="0" y="0" width="512" height="512" rx="114" fill="#000000"/>
+  
+  <!-- Concentric Rings -->
+  <circle cx="256" cy="256" r="140" stroke="url(#grad3)" stroke-width="12" stroke-opacity="0.2"/>
+  <circle cx="256" cy="256" r="100" stroke="url(#grad3)" stroke-width="12" stroke-opacity="0.5"/>
+  <circle cx="256" cy="256" r="60" stroke="url(#grad3)" stroke-width="24"/>
+
+  <defs>
+    <linearGradient id="grad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00FFCC" />
+      <stop offset="100%" stop-color="#008F7A" />
+    </linearGradient>
+  </defs>
+</svg>

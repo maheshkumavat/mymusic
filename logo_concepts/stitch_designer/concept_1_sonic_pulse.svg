@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Concept 1: The Sonic Pulse -->
+  <!-- Squircle Base -->
+  <rect x="0" y="0" width="512" height="512" rx="114" fill="#000000"/>
+  
+  <!-- Glowing Background Pulse -->
+  <circle cx="256" cy="256" r="180" fill="url(#grad1)" fill-opacity="0.15">
+    <filter id="blur1" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="40" />
+    </filter>
+  </circle>
+
+  <!-- Vector Icon: Geometric Waveform -->
+  <path d="M128 256C128 256 168 128 256 128C344 128 384 256 384 256C384 256 344 384 256 384C168 384 128 256 128 256Z" stroke="url(#grad1)" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="48" fill="url(#grad1)"/>
+
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C2FF" />
+      <stop offset="100%" stop-color="#7000FF" />
+    </linearGradient>
+  </defs>
+</svg>

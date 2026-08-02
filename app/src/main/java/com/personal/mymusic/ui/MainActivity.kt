@@ -75,15 +75,18 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val currentScreen by viewModel.currentScreen.collectAsState()
-            val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
-            
-            BackHandler(enabled = isPlayerExpanded) {
-                viewModel.setPlayerExpanded(false)
-            }
-            BackHandler(enabled = !isPlayerExpanded && currentScreen is AppScreen.PlaylistDetails) {
-                viewModel.navigateTo(AppScreen.Library)
-            }
+            val isDarkTheme by viewModel.isDarkTheme.collectAsState()
+            MyMusicTheme(isDarkTheme = isDarkTheme) {
+                val currentScreen by viewModel.currentScreen.collectAsState()
+                val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
+                
+                // Unified back handler — handles all navigation-level back presses.
+                // viewModel.popBackStack() returns true if it consumed the back press,
+                // false only when on Home with an empty back stack (let the system handle exit).
+                val backStack by viewModel.backStack.collectAsState()
+                BackHandler(enabled = isPlayerExpanded || currentScreen !is AppScreen.Home || backStack.isNotEmpty()) {
+                    viewModel.popBackStack()
+                }
             
             var showBatteryOptDialog by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
@@ -266,6 +269,7 @@ class MainActivity : ComponentActivity() {
                                         isPlaying = isPlaying,
                                         progress = if (duration > 0) position.toFloat() / duration else 0f,
                                         onPlayPauseClick = { playbackManager.togglePlayPause() },
+                                        onCloseClick = { playbackManager.stop() },
                                         onClick = { viewModel.setPlayerExpanded(true) }
                                     )
                                 }
@@ -273,9 +277,9 @@ class MainActivity : ComponentActivity() {
 
                             // Bottom Navigation Bar
                             NavigationBar(
-                                containerColor = SurfaceGlass, // Premium frosted glass look
+                                containerColor = Color.Transparent,
                                 modifier = Modifier
-                                    .background(Color.Transparent)
+                                    .background(SurfaceGlass)
                                     .border(1.dp, BorderGlass, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                                     .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
                             ) {
@@ -354,7 +358,7 @@ class MainActivity : ComponentActivity() {
                                 playlistId = screen.playlistId,
                                 playlistName = screen.playlistName,
                                 viewModel = viewModel,
-                                onBack = { viewModel.navigateTo(AppScreen.Library) }
+                                onBack = { viewModel.popBackStack() }
                             )
                             is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
                         }
@@ -385,6 +389,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
@@ -407,12 +412,13 @@ fun MiniPlayer(
     isPlaying: Boolean,
     progress: Float,
     onPlayPauseClick: () -> Unit,
+    onCloseClick: () -> Unit,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp) // Match 16dp padding
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .border(1.dp, BorderGlass, RoundedCornerShape(24.dp))
             .clip(RoundedCornerShape(24.dp))
             .background(SurfaceGlass)
@@ -422,7 +428,7 @@ fun MiniPlayer(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp), // Increase horizontal padding
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AsyncImage(
@@ -432,7 +438,7 @@ fun MiniPlayer(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color.DarkGray)
+                        .background(SurfaceContainerLow)
                 )
 
                 Spacer(modifier = Modifier.width(14.dp))
@@ -440,16 +446,16 @@ fun MiniPlayer(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song.title,
-                        color = Color.White,
+                        color = TextPrimary,
                         fontFamily = InterFontFamily,
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = song.channel,
-                        color = Color.White.copy(alpha = 0.7f),
+                        color = TextSecondary,
                         fontFamily = InterFontFamily,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
@@ -465,8 +471,20 @@ fun MiniPlayer(
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play/Pause",
-                        tint = Color.White,
+                        tint = AccentColor,
                         modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = onCloseClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close Player",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -474,7 +492,7 @@ fun MiniPlayer(
             LinearProgressIndicator(
                 progress = progress.coerceIn(0f, 1f),
                 color = AccentColor,
-                trackColor = Color(0x11FFFFFF),
+                trackColor = BorderGlass,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.5.dp)

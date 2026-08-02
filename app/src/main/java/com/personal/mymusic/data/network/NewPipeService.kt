@@ -16,7 +16,7 @@ class NewPipeService {
     private val youtubeService: YoutubeService
         get() = ServiceList.YouTube as YoutubeService
 
-    @Throws(IOException::class)
+    @Throws(Exception::class)
     private suspend fun searchRaw(query: String): List<SearchResult> = withContext(Dispatchers.IO) {
         try {
             val searchExtractor = youtubeService.getSearchExtractor(query) as SearchExtractor
@@ -25,7 +25,11 @@ class NewPipeService {
             searchExtractor.initialPage.items
                 .filterIsInstance<StreamInfoItem>()
                 .map { item ->
-                    val videoId = item.url.substringAfter("v=").substringBefore("&")
+                    val videoId = when {
+                        item.url.contains("v=") -> item.url.substringAfter("v=").substringBefore("&")
+                        item.url.contains("youtu.be/") -> item.url.substringAfter("youtu.be/").substringBefore("?").substringBefore("&")
+                        else -> item.url.substringAfterLast("/")
+                    }
                     SearchResult(
                         id = videoId,
                         title = item.name ?: "Unknown Title",
@@ -36,6 +40,18 @@ class NewPipeService {
                 }
         } catch (e: Exception) {
             android.util.Log.e("NewPipeService", "Error during searchRaw for: $query", e)
+            throw e
+        }
+    }
+
+    suspend fun getSearchSuggestions(query: String): List<String> = withContext(Dispatchers.IO) {
+        val trimmedQuery = query.trim()
+        if (trimmedQuery.isEmpty()) return@withContext emptyList()
+        try {
+            val suggestionExtractor = youtubeService.suggestionExtractor
+            suggestionExtractor.suggestionList(trimmedQuery)
+        } catch (e: Exception) {
+            android.util.Log.e("NewPipeService", "Error fetching search suggestions for: $trimmedQuery", e)
             emptyList()
         }
     }
@@ -96,18 +112,31 @@ class NewPipeService {
 
     @Throws(IOException::class)
     suspend fun getAudioStreamUrl(videoId: String): String = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        android.util.Log.d("NewPipeService", "PLAYBACK_TIMING: getAudioStreamUrl start for videoId=$videoId at t=$startTime")
         val videoUrl = "https://www.youtube.com/watch?v=$videoId"
         val streamExtractor = youtubeService.getStreamExtractor(videoUrl)
         streamExtractor.fetchPage()
         
-        android.util.Log.d("NewPipeService", "audioStreams: ${streamExtractor.audioStreams?.size}, videoStreams: ${streamExtractor.videoStreams?.size}, videoOnlyStreams: ${streamExtractor.videoOnlyStreams?.size}")
+        val fetchDuration = System.currentTimeMillis() - startTime
+        android.util.Log.d("NewPipeService", "PLAYBACK_TIMING: fetchPage completed in ${fetchDuration}ms for videoId=$videoId")
+        
         val audioStreams = streamExtractor.audioStreams
         if (audioStreams.isNullOrEmpty()) {
             throw IOException("No audio streams found for video $videoId. Total video: ${streamExtractor.videoStreams?.size}, videoOnly: ${streamExtractor.videoOnlyStreams?.size}")
         }
         
-        // Find best audio stream based on quality/bitrate
-        val bestStream = audioStreams.maxByOrNull { it.bitrate } ?: audioStreams.first()
-        bestStream.url ?: throw IOException("Audio stream URL is null")
+        // Prefer M4A / AAC audio streams for fastest ExoPlayer start & hardware decoding
+        val bestStream = audioStreams
+            .filter { (it.format?.name ?: "").contains("m4a", ignoreCase = true) || (it.format?.name ?: "").contains("mp4", ignoreCase = true) }
+            .maxByOrNull { it.bitrate }
+            ?: audioStreams.maxByOrNull { it.bitrate }
+            ?: audioStreams.first()
+            
+        val url = bestStream.url ?: throw IOException("Audio stream URL is null")
+        val totalDuration = System.currentTimeMillis() - startTime
+        android.util.Log.d("NewPipeService", "PLAYBACK_TIMING: getAudioStreamUrl resolved in ${totalDuration}ms for videoId=$videoId (Format=${bestStream.format?.name}, Bitrate=${bestStream.bitrate})")
+        url
     }
 }
+

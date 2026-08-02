@@ -92,12 +92,13 @@ Set-Content $gradlePath $gradleContent
 Write-Host "`n[*] Compiling Signed Release APK..." -ForegroundColor Cyan
 $env:JAVA_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\jdk"
 $env:ANDROID_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\android-sdk"
+$env:ANDROID_SDK_HOME = ""
 
 # Run Gradle Build
 .\gradlew.bat assembleRelease
 if ($LASTEXITCODE -ne 0) {
     # Revert gradle version changes on failure
-    Set-Content $gradlePath (Get-Content $gradlePath -Raw -replace "versionCode $newCode", "versionCode $currentCode" -replace "versionName `"$newName`"", "versionName `"$currentName`"")
+    Set-Content $gradlePath ((Get-Content $gradlePath -Raw) -replace "versionCode $newCode", "versionCode $currentCode" -replace "versionName `"$newName`"", "versionName `"$currentName`"")
     Write-Error "Gradle build failed with exit code $LASTEXITCODE"
 }
 
