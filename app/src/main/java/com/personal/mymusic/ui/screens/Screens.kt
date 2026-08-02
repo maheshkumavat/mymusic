@@ -90,6 +90,10 @@ sealed class AppScreen {
     object Library : AppScreen()
     data class PlaylistDetails(val playlistId: Long, val playlistName: String) : AppScreen()
     object Settings : AppScreen()
+    data class AlbumDetails(val albumId: String, val albumName: String, val artistName: String, val coverUrl: String) : AppScreen()
+    data class ArtistDetails(val artistId: String, val artistName: String, val avatarUrl: String) : AppScreen()
+    data class SongDetails(val song: Song) : AppScreen()
+    object DeveloperTools : AppScreen()
 }
 
 enum class NowPlayingSubView {
@@ -3965,6 +3969,453 @@ fun NowPlayingScreen(
         )
     }
 }
+}
+
+@Composable
+fun SongDetailsScreen(
+    song: Song,
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val dominantColor = remember(song.id) { extractDynamicColorFromSeed(song.id) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Song Details", color = Color.White, fontSize = 22.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Artwork
+            Box(
+                modifier = Modifier
+                    .size(200.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(dominantColor.copy(alpha = 0.3f))
+                    .border(2.dp, dominantColor, RoundedCornerShape(24.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = song.thumbnailUrl,
+                    contentDescription = song.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(song.title, color = Color.White, fontSize = 22.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(song.channel, color = AccentColor, fontSize = 16.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Medium)
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Metadata Cards
+            GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Technical Information", color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val details = listOf(
+                        "Track Title" to song.title,
+                        "Artist / Channel" to song.channel,
+                        "Duration" to formatDuration(song.durationSeconds),
+                        "Audio Codec" to "AAC-LC (Advanced Audio Coding)",
+                        "Bitrate / Quality" to "320 kbps (Lossless Master)",
+                        "Sample Rate" to "44.1 kHz 16-bit Stereo",
+                        "Source Engine" to "NewPipe Extractor Audio Stream",
+                        "Track Identifier" to song.id
+                    )
+
+                    details.forEachIndexed { idx, pair ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(pair.first, color = TextSecondary, fontSize = 13.sp, fontFamily = InterFontFamily)
+                            Text(pair.second, color = Color.White, fontSize = 13.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 200.dp))
+                        }
+                        if (idx < details.size - 1) {
+                            HorizontalDivider(color = BorderGlass)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            VibePrimaryPillButton(
+                text = "Play Song",
+                onClick = {
+                    viewModel.playbackManager.playSongImmediate(song)
+                    viewModel.setPlayerExpanded(true)
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun AlbumDetailsScreen(
+    albumId: String,
+    albumName: String,
+    artistName: String,
+    coverUrl: String,
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val mockTracks = remember {
+        listOf(
+            Song(id = "${albumId}_1", title = "Midnight Resonance", channel = artistName, durationSeconds = 214, thumbnailUrl = coverUrl),
+            Song(id = "${albumId}_2", title = "Solar Flare", channel = artistName, durationSeconds = 188, thumbnailUrl = coverUrl),
+            Song(id = "${albumId}_3", title = "Ethereal Echoes", channel = artistName, durationSeconds = 245, thumbnailUrl = coverUrl),
+            Song(id = "${albumId}_4", title = "Neon Cityscape", channel = artistName, durationSeconds = 202, thumbnailUrl = coverUrl),
+            Song(id = "${albumId}_5", title = "Velocity Shift", channel = artistName, durationSeconds = 195, thumbnailUrl = coverUrl)
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Album", color = Color.White, fontSize = 22.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Album Header Card
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFF121212))
+                    .border(1.dp, BorderGlass, RoundedCornerShape(20.dp))
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = coverUrl,
+                    contentDescription = albumName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(100.dp).clip(RoundedCornerShape(16.dp))
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(albumName, color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(artistName, color = AccentColor, fontSize = 14.sp, fontFamily = InterFontFamily)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Album • 2026 • 5 Songs", color = TextSecondary, fontSize = 12.sp, fontFamily = InterFontFamily)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                VibePrimaryPillButton(
+                    text = "Play All",
+                    onClick = { viewModel.playbackManager.playSongImmediate(mockTracks.first()) },
+                    leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.Black) },
+                    modifier = Modifier.weight(1f)
+                )
+
+                VibeSecondaryPillButton(
+                    text = "Shuffle",
+                    onClick = { viewModel.playbackManager.playSongImmediate(mockTracks.shuffled().first()) },
+                    leadingIcon = { Icon(Icons.Default.Shuffle, contentDescription = null, tint = AccentColor) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text("Tracks", color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+
+            mockTracks.forEach { trk ->
+                SongRow(
+                    song = trk,
+                    onClick = { viewModel.playbackManager.playSongImmediate(trk) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun ArtistDetailsScreen(
+    artistId: String,
+    artistName: String,
+    avatarUrl: String,
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val topSongs = remember {
+        listOf(
+            Song(id = "${artistId}_a", title = "Midnight Theory", channel = artistName, durationSeconds = 210, thumbnailUrl = avatarUrl),
+            Song(id = "${artistId}_b", title = "Golden Hour Pulse", channel = artistName, durationSeconds = 198, thumbnailUrl = avatarUrl),
+            Song(id = "${artistId}_c", title = "Shadow Dance", channel = artistName, durationSeconds = 230, thumbnailUrl = avatarUrl)
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Artist Profile", color = Color.White, fontSize = 22.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Header Banner
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF121212))
+                    .border(1.dp, BorderGlass, RoundedCornerShape(24.dp))
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                AsyncImage(
+                    model = avatarUrl,
+                    contentDescription = artistName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(110.dp).clip(CircleShape).border(2.dp, AccentColor, CircleShape)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(artistName, color = Color.White, fontSize = 22.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(Icons.Default.CheckCircle, contentDescription = "Verified", tint = AccentColor, modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("4.8M Monthly Listeners", color = TextSecondary, fontSize = 13.sp, fontFamily = InterFontFamily)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text("Popular Songs", color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 12.dp))
+
+            topSongs.forEach { trk ->
+                SongRow(
+                    song = trk,
+                    onClick = { viewModel.playbackManager.playSongImmediate(trk) }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun DeveloperToolsScreen(
+    viewModel: MainViewModel,
+    onBack: () -> Unit
+) {
+    val debugLogs by viewModel.debugLogs.collectAsState()
+    val fakePremium by viewModel.fakePremiumEnabled.collectAsState()
+    val uiInspector by viewModel.uiInspectorEnabled.collectAsState()
+    val fpsMonitor by viewModel.fpsMonitorEnabled.collectAsState()
+
+    var showConfirmResetDialog by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("🛠️ Developer Tools", color = Color.White, fontSize = 22.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Controls Card
+            GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Development Flags", color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Fake Premium Mode", color = Color.White, fontSize = 14.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold)
+                            Text("Unlocks all bitrate settings", color = TextSecondary, fontSize = 11.sp, fontFamily = InterFontFamily)
+                        }
+                        Switch(checked = fakePremium, onCheckedChange = { viewModel.setFakePremium(it) }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = AccentColor))
+                    }
+
+                    HorizontalDivider(color = BorderGlass)
+
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("UI Inspector Grid", color = Color.White, fontSize = 14.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold)
+                            Text("Highlights 8pt layout boundaries", color = TextSecondary, fontSize = 11.sp, fontFamily = InterFontFamily)
+                        }
+                        Switch(checked = uiInspector, onCheckedChange = { viewModel.setUiInspector(it) }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = AccentColor))
+                    }
+
+                    HorizontalDivider(color = BorderGlass)
+
+                    Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("FPS & Frame Monitor", color = Color.White, fontSize = 14.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.SemiBold)
+                            Text("Shows live render performance", color = TextSecondary, fontSize = 11.sp, fontFamily = InterFontFamily)
+                        }
+                        Switch(checked = fpsMonitor, onCheckedChange = { viewModel.setFpsMonitor(it) }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = AccentColor))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Database & Cache Actions Card
+            GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Database & Storage Utilities", color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = { viewModel.clearCoilImageCache() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Clear Image Cache", fontSize = 11.sp, color = Color.White)
+                        }
+
+                        Button(
+                            onClick = { viewModel.seedDemoData() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E1E1E)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Seed Demo Data", fontSize = 11.sp, color = Color.White)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = { showConfirmResetDialog = true },
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFF5252)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Reset Database", fontWeight = FontWeight.Bold, fontFamily = InterFontFamily)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Debug Logs Console
+            GlassmorphicCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("System Debug Logs", color = Color.White, fontSize = 18.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                        Text("Clear Logs", color = AccentColor, fontSize = 12.sp, fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { viewModel.clearDebugLogs() })
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(160.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF0A0A0A))
+                            .border(1.dp, BorderGlass, RoundedCornerShape(12.dp))
+                            .padding(12.dp)
+                    ) {
+                        LazyColumn {
+                            items(debugLogs.size) { idx ->
+                                Text(debugLogs[idx], color = Color(0xFF00FF66), fontSize = 11.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    if (showConfirmResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmResetDialog = false },
+            title = { Text("Reset Database", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to reset all database tables and play history? This cannot be undone.", color = Color.LightGray) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.resetDatabase()
+                        showConfirmResetDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF5252))
+                ) {
+                    Text("Reset All", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmResetDialog = false }) {
+                    Text("Cancel", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E1E1E)
+        )
+    }
 }
 
 

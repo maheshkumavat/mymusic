@@ -697,6 +697,98 @@ class MainViewModel(
         }
         return result.sortedBy { it.timestampMs }
     }
+
+    // Developer Mode State
+    private val _devModeUnlocked = MutableStateFlow(sharedPrefs.getBoolean("dev_mode_unlocked", false))
+    val devModeUnlocked: StateFlow<Boolean> = _devModeUnlocked.asStateFlow()
+
+    private val _fakePremiumEnabled = MutableStateFlow(sharedPrefs.getBoolean("fake_premium", true))
+    val fakePremiumEnabled: StateFlow<Boolean> = _fakePremiumEnabled.asStateFlow()
+
+    private val _uiInspectorEnabled = MutableStateFlow(false)
+    val uiInspectorEnabled: StateFlow<Boolean> = _uiInspectorEnabled.asStateFlow()
+
+    private val _fpsMonitorEnabled = MutableStateFlow(false)
+    val fpsMonitorEnabled: StateFlow<Boolean> = _fpsMonitorEnabled.asStateFlow()
+
+    private val _debugLogs = MutableStateFlow<List<String>>(
+        listOf(
+            "[INIT] App initialized",
+            "[OLED] OLED Pure Black Identity Active (#000000)",
+            "[AUDIO] ExoPlayer 1.2.1 Audio Engine Active",
+            "[NETWORK] Online - 320kbps Lossless Audio Available"
+        )
+    )
+    val debugLogs: StateFlow<List<String>> = _debugLogs.asStateFlow()
+
+    private var devTapCount = 0
+
+    fun onVersionTap(): String? {
+        devTapCount++
+        logDebug("Version tapped ($devTapCount/7)")
+        if (devTapCount >= 7) {
+            _devModeUnlocked.value = true
+            sharedPrefs.edit().putBoolean("dev_mode_unlocked", true).apply()
+            devTapCount = 0
+            navigateTo(AppScreen.DeveloperTools)
+            return "🎉 Developer Mode Unlocked!"
+        } else if (devTapCount >= 3) {
+            val remaining = 7 - devTapCount
+            return "You are $remaining steps away from Developer Mode"
+        }
+        return null
+    }
+
+    fun setFakePremium(enabled: Boolean) {
+        _fakePremiumEnabled.value = enabled
+        sharedPrefs.edit().putBoolean("fake_premium", enabled).apply()
+        logDebug("Fake Premium set to $enabled")
+    }
+
+    fun setUiInspector(enabled: Boolean) {
+        _uiInspectorEnabled.value = enabled
+        logDebug("UI Inspector set to $enabled")
+    }
+
+    fun setFpsMonitor(enabled: Boolean) {
+        _fpsMonitorEnabled.value = enabled
+        logDebug("FPS Monitor set to $enabled")
+    }
+
+    fun logDebug(message: String) {
+        val timestamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+        _debugLogs.value = listOf("[$timestamp] $message") + _debugLogs.value.take(49)
+    }
+
+    fun clearDebugLogs() {
+        _debugLogs.value = emptyList()
+    }
+
+    fun clearCoilImageCache() {
+        try {
+            coil.Coil.imageLoader(getApplication()).diskCache?.clear()
+            coil.Coil.imageLoader(getApplication()).memoryCache?.clear()
+            logDebug("Image Cache Cleared")
+        } catch (e: Exception) {
+            logDebug("Image Cache Clear: ${e.localizedMessage}")
+        }
+    }
+
+    fun resetDatabase() {
+        viewModelScope.launch {
+            playlistDao.clearPlayHistory()
+            logDebug("Database Reset Complete")
+        }
+    }
+
+    fun seedDemoData() {
+        viewModelScope.launch {
+            createPlaylist("Vibe Favorites")
+            createPlaylist("Chill Lo-Fi Session")
+            createPlaylist("Late Night Driving")
+            logDebug("Demo Data Seeded: 3 Playlists Created")
+        }
+    }
 }
 
 class MainViewModelFactory(

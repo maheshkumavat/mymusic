@@ -24,8 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import coil.compose.AsyncImage
 import com.personal.mymusic.domain.model.Song
 import android.content.Context
@@ -292,6 +291,60 @@ fun SongRow(
         if (trailingContent != null) {
             Spacer(modifier = Modifier.width(8.dp))
             trailingContent()
+        }
+    }
+}
+
+@Composable
+fun SongOverflowMenu(
+    song: Song,
+    onPlay: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onSongDetails: () -> Unit,
+    onViewAlbum: () -> Unit,
+    onViewArtist: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Song options for ${song.title}",
+                tint = TextSecondary
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(Color(0xFF1E1E1E))
+        ) {
+            DropdownMenuItem(
+                text = { Text("Play Now", color = Color.White, fontFamily = InterFontFamily) },
+                leadingIcon = { Icon(Icons.Default.PlayArrow, contentDescription = null, tint = AccentColor) },
+                onClick = { expanded = false; onPlay() }
+            )
+            DropdownMenuItem(
+                text = { Text("Add to Playlist", color = Color.White, fontFamily = InterFontFamily) },
+                leadingIcon = { Icon(Icons.Default.PlaylistAdd, contentDescription = null, tint = AccentColor) },
+                onClick = { expanded = false; onAddToPlaylist() }
+            )
+            DropdownMenuItem(
+                text = { Text("Song Details", color = Color.White, fontFamily = InterFontFamily) },
+                leadingIcon = { Icon(Icons.Default.Info, contentDescription = null, tint = AccentColor) },
+                onClick = { expanded = false; onSongDetails() }
+            )
+            DropdownMenuItem(
+                text = { Text("View Album", color = Color.White, fontFamily = InterFontFamily) },
+                leadingIcon = { Icon(Icons.Default.Album, contentDescription = null, tint = AccentColor) },
+                onClick = { expanded = false; onViewAlbum() }
+            )
+            DropdownMenuItem(
+                text = { Text("View Artist", color = Color.White, fontFamily = InterFontFamily) },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = AccentColor) },
+                onClick = { expanded = false; onViewArtist() }
+            )
         }
     }
 }

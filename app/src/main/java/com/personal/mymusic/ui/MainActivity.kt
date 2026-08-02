@@ -361,6 +361,30 @@ class MainActivity : ComponentActivity() {
                                 onBack = { viewModel.popBackStack() }
                             )
                             is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
+                            is AppScreen.AlbumDetails -> AlbumDetailsScreen(
+                                albumId = screen.albumId,
+                                albumName = screen.albumName,
+                                artistName = screen.artistName,
+                                coverUrl = screen.coverUrl,
+                                viewModel = viewModel,
+                                onBack = { viewModel.popBackStack() }
+                            )
+                            is AppScreen.ArtistDetails -> ArtistDetailsScreen(
+                                artistId = screen.artistId,
+                                artistName = screen.artistName,
+                                avatarUrl = screen.avatarUrl,
+                                viewModel = viewModel,
+                                onBack = { viewModel.popBackStack() }
+                            )
+                            is AppScreen.SongDetails -> SongDetailsScreen(
+                                song = screen.song,
+                                viewModel = viewModel,
+                                onBack = { viewModel.popBackStack() }
+                            )
+                            is AppScreen.DeveloperTools -> DeveloperToolsScreen(
+                                viewModel = viewModel,
+                                onBack = { viewModel.popBackStack() }
+                            )
                         }
                     }
                 }
