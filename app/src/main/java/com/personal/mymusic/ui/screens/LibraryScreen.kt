@@ -1,12 +1,12 @@
 package com.personal.mymusic.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,6 +28,7 @@ import com.personal.mymusic.data.database.PlaylistEntity
 import com.personal.mymusic.ui.MainViewModel
 import com.personal.mymusic.ui.components.*
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LibraryScreen(
     viewModel: MainViewModel,
@@ -35,12 +36,14 @@ fun LibraryScreen(
 ) {
     val playlists by viewModel.playlists.collectAsState()
     val likedPlaylistId by viewModel.likedPlaylistId.collectAsState()
-    val recentlyPlayed by viewModel.recentlyPlayed.collectAsState()
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var playlistNameInput by remember { mutableStateOf("") }
+
+    var playlistMenuTarget by remember { mutableStateOf<PlaylistEntity?>(null) }
     var playlistToRename by remember { mutableStateOf<PlaylistEntity?>(null) }
     var renameInput by remember { mutableStateOf("") }
+    var playlistToDelete by remember { mutableStateOf<PlaylistEntity?>(null) }
 
     var selectedFilter by remember { mutableStateOf("All") }
     var librarySearchQuery by remember { mutableStateOf("") }
@@ -51,9 +54,11 @@ fun LibraryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Header Bar
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Header Bar: 24dp left aligned
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -79,37 +84,39 @@ fun LibraryScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Search / Filter Field
+            // Search / Filter Field (height 52dp)
             SketchSearchField(
                 value = librarySearchQuery,
                 onValueChange = { librarySearchQuery = it },
                 placeholder = "Filter playlists...",
                 leadingIcon = {
                     Icon(Icons.Default.FilterList, contentDescription = null, tint = SketchColors.Ink)
-                }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Category Filter Tabs
             val filterTabs = listOf("All", "Playlists", "Liked Songs", "Recent", "Favorites")
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 18.dp)
+                modifier = Modifier.fillMaxWidth()
             ) {
                 items(filterTabs.size) { idx ->
                     val label = filterTabs[idx]
                     val isSelected = selectedFilter == label
                     Box(
                         modifier = Modifier
-                            .bounceClick { selectedFilter = label }
-                            .background(if (isSelected) SketchColors.Orange else Color.White, RoundedCornerShape(50))
+                            .clip(RoundedCornerShape(50))
+                            .background(if (isSelected) SketchColors.Orange else Color.White)
                             .border(1.5.dp, SketchColors.Ink, RoundedCornerShape(50))
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                            .clickable { selectedFilter = label }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = label,
@@ -122,14 +129,14 @@ fun LibraryScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
             // Liked Songs Quick Card
             likedPlaylistId?.let { likedId ->
                 SketchCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     slabColor = SketchColors.HeartRed,
-                    rotation = -1.2f,
+                    rotation = -1.5f,
                     showPin = true,
                     onClick = { onPlaylistClick(likedId, "Liked Songs") }
                 ) {
@@ -181,43 +188,60 @@ fun LibraryScreen(
                 }
             }
 
-            // User Playlists Section with Staggered Tilted Track Cards with Pins
-            val filteredPlaylists = playlists.filter {
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // User Playlists Section
+            val userPlaylists = playlists.filter {
+                it.id != likedPlaylistId && !it.name.equals("Liked Songs", ignoreCase = true)
+            }.filter {
                 it.name.contains(librarySearchQuery, ignoreCase = true)
             }
 
             Text(
-                text = "Playlists (${filteredPlaylists.size})",
+                text = "Playlists (${userPlaylists.size})",
                 color = SketchColors.Ink,
                 fontSize = 18.sp,
                 fontFamily = PoppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
+                fontWeight = FontWeight.Bold
             )
 
-            if (filteredPlaylists.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
+            Spacer(modifier = Modifier.height(14.dp))
+
+            if (userPlaylists.isEmpty()) {
+                SketchCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    slabColor = SketchColors.Teal,
+                    showPin = false
                 ) {
-                    Text(
-                        text = "No playlists found.\nCreate one using the '+ New' button above!",
-                        color = SketchColors.MutedText,
-                        fontFamily = PoppinsFontFamily,
-                        textAlign = TextAlign.Center
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No custom playlists found.\nTap '+ New' to create your first playlist!",
+                            color = SketchColors.MutedText,
+                            fontFamily = PoppinsFontFamily,
+                            textAlign = TextAlign.Center,
+                            fontSize = 13.sp
+                        )
+                    }
                 }
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    filteredPlaylists.forEachIndexed { index, playlist ->
-                        val tilt = tiltForIndex(index)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    userPlaylists.forEachIndexed { index, playlist ->
+                        val tilt = if (index % 2 == 0) -1.8f else 1.8f
                         val slab = slabColorForIndex(index)
                         val isPinned = pinnedPlaylistIds.contains(playlist.id)
 
                         SketchCard(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onPlaylistClick(playlist.id, playlist.name) },
+                                    onLongClick = { playlistMenuTarget = playlist }
+                                ),
                             slabColor = slab,
                             rotation = tilt,
                             showPin = true,
@@ -279,15 +303,12 @@ fun LibraryScreen(
                                 }
 
                                 IconButton(
-                                    onClick = {
-                                        renameInput = playlist.name
-                                        playlistToRename = playlist
-                                    },
+                                    onClick = { playlistMenuTarget = playlist },
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.MoreVert,
-                                        contentDescription = "More",
+                                        contentDescription = "Options",
                                         tint = SketchColors.Ink,
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -298,11 +319,161 @@ fun LibraryScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(130.dp))
         }
     }
 
-    // Create Playlist Dialog (Sketch Outline Style)
+    // Playlist Options Menu (Rename & Delete)
+    if (playlistMenuTarget != null) {
+        val target = playlistMenuTarget!!
+        AlertDialog(
+            onDismissRequest = { playlistMenuTarget = null },
+            title = {
+                Text(
+                    text = target.name,
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = SketchColors.Ink
+                )
+            },
+            text = {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                renameInput = target.name
+                                playlistToRename = target
+                                playlistMenuTarget = null
+                            }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, tint = SketchColors.Ink)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Rename Playlist", fontFamily = PoppinsFontFamily, color = SketchColors.Ink, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    HorizontalDivider(color = SketchColors.FaintCircle)
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                playlistToDelete = target
+                                playlistMenuTarget = null
+                            }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = SketchColors.HeartRed)
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Delete Playlist", fontFamily = PoppinsFontFamily, color = SketchColors.HeartRed, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { playlistMenuTarget = null }) {
+                    Text("Close", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
+        )
+    }
+
+    // Delete Playlist Confirmation Dialog
+    if (playlistToDelete != null) {
+        val target = playlistToDelete!!
+        AlertDialog(
+            onDismissRequest = { playlistToDelete = null },
+            title = {
+                Text(
+                    "Delete Playlist",
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = SketchColors.Ink
+                )
+            },
+            text = {
+                Text(
+                    "Delete \"${target.name}\"? The songs inside will remain in your library.",
+                    color = SketchColors.Ink,
+                    fontFamily = PoppinsFontFamily,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                SketchButton(
+                    text = "Delete",
+                    onClick = {
+                        viewModel.deletePlaylist(target.id)
+                        playlistToDelete = null
+                    },
+                    backgroundColor = SketchColors.HeartRed,
+                    contentColor = Color.White
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistToDelete = null }) {
+                    Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
+        )
+    }
+
+    // Rename Dialog
+    if (playlistToRename != null) {
+        val target = playlistToRename!!
+        AlertDialog(
+            onDismissRequest = { playlistToRename = null },
+            title = {
+                Text(
+                    "Rename Playlist",
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = SketchColors.Ink
+                )
+            },
+            text = {
+                Column {
+                    SketchSearchField(
+                        value = renameInput,
+                        onValueChange = { renameInput = it },
+                        placeholder = "Playlist name",
+                        leadingIcon = null
+                    )
+                }
+            },
+            confirmButton = {
+                SketchButton(
+                    text = "Rename",
+                    onClick = {
+                        if (renameInput.isNotBlank()) {
+                            viewModel.renamePlaylist(target.id, renameInput)
+                            playlistToRename = null
+                        }
+                    },
+                    backgroundColor = SketchColors.Orange
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { playlistToRename = null }) {
+                    Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
+        )
+    }
+
+    // Create New Playlist Dialog
     if (showCreateDialog) {
         AlertDialog(
             onDismissRequest = { showCreateDialog = false },
@@ -314,24 +485,21 @@ fun LibraryScreen(
                     color = SketchColors.Ink
                 )
             },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp)),
             text = {
                 Column {
                     Text(
-                        "Give your playlist a memorable name.",
-                        color = SketchColors.MutedText,
+                        "Enter a name for your custom playlist:",
+                        fontFamily = PoppinsFontFamily,
                         fontSize = 13.sp,
-                        fontFamily = PoppinsFontFamily
+                        color = SketchColors.MutedText
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     SketchSearchField(
                         value = playlistNameInput,
                         onValueChange = { playlistNameInput = it },
-                        placeholder = "e.g. Road Trip Vibes",
+                        placeholder = "e.g. Chill Beats",
                         leadingIcon = {
-                            Icon(Icons.Default.MusicNote, contentDescription = null, tint = SketchColors.Ink)
+                            Icon(Icons.Default.QueueMusic, contentDescription = null, tint = SketchColors.Ink)
                         }
                     )
                 }
@@ -345,58 +513,17 @@ fun LibraryScreen(
                             showCreateDialog = false
                         }
                     },
-                    backgroundColor = SketchColors.Orange
+                    backgroundColor = SketchColors.Teal
                 )
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) {
                     Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
                 }
-            }
-        )
-    }
-
-    // Rename Playlist Dialog (Sketch Outline Style)
-    if (playlistToRename != null) {
-        AlertDialog(
-            onDismissRequest = { playlistToRename = null },
-            title = {
-                Text(
-                    "Rename Playlist",
-                    fontFamily = PoppinsFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    color = SketchColors.Ink
-                )
             },
             containerColor = Color.White,
             shape = RoundedCornerShape(18.dp),
-            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp)),
-            text = {
-                Column {
-                    SketchSearchField(
-                        value = renameInput,
-                        onValueChange = { renameInput = it },
-                        placeholder = "New playlist name"
-                    )
-                }
-            },
-            confirmButton = {
-                SketchButton(
-                    text = "Save",
-                    onClick = {
-                        if (renameInput.isNotBlank()) {
-                            viewModel.renamePlaylist(playlistToRename!!.id, renameInput)
-                            playlistToRename = null
-                        }
-                    },
-                    backgroundColor = SketchColors.Teal
-                )
-            },
-            dismissButton = {
-                TextButton(onClick = { playlistToRename = null }) {
-                    Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
-                }
-            }
+            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
         )
     }
 }

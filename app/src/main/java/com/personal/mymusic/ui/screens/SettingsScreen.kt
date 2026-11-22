@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.personal.mymusic.ui.MainViewModel
@@ -23,39 +24,86 @@ import com.personal.mymusic.ui.components.*
 
 @Composable
 fun SettingsScreen(viewModel: MainViewModel) {
-    val cacheSizeGb by viewModel.cacheSizeLimitGb.collectAsState()
+    val userName by viewModel.userName.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
-    val crossfadeSeconds by viewModel.crossfadeSeconds.collectAsState()
-    val autoplayEnabledSetting by viewModel.playbackManager.autoplayEnabled.collectAsState()
+    val autoplayEnabled by viewModel.playbackManager.autoplayEnabled.collectAsState()
     val updateState by viewModel.updateState.collectAsState()
 
     var streamingQuality by remember { mutableStateOf("Lossless (320kbps)") }
     var gaplessPlayback by remember { mutableStateOf(true) }
     var normalizeVolume by remember { mutableStateOf(true) }
-    var pushNotifications by remember { mutableStateOf(true) }
-    var listeningHistoryOptIn by remember { mutableStateOf(true) }
 
     var showQualityDialog by remember { mutableStateOf(false) }
-    var showExportDialog by remember { mutableStateOf(false) }
-    var showConfirmHistoryDialog by remember { mutableStateOf(false) }
+    var showEditNameDialog by remember { mutableStateOf(false) }
+    var editNameInput by remember { mutableStateOf("") }
 
     FaintCirclesBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 24.dp)
         ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
             Text(
                 text = "Settings",
                 color = SketchColors.Ink,
                 fontSize = 28.sp,
                 fontFamily = PoppinsFontFamily,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+                fontWeight = FontWeight.Bold
             )
 
-            // 1. Audio Quality & Playback Card
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 1. Profile / Account Card (Editable Name)
+            SketchCard(
+                modifier = Modifier.fillMaxWidth(),
+                slabColor = SketchColors.Teal
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = SketchColors.Teal, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Profile",
+                            color = SketchColors.Ink,
+                            fontSize = 17.sp,
+                            fontFamily = PoppinsFontFamily,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                editNameInput = userName
+                                showEditNameDialog = true
+                            }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Name", color = SketchColors.Ink, fontSize = 14.sp, fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = if (userName.isNotBlank()) userName else "Tap to set name",
+                                color = SketchColors.MutedText,
+                                fontSize = 12.sp,
+                                fontFamily = PoppinsFontFamily
+                            )
+                        }
+                        Icon(Icons.Default.Edit, contentDescription = "Edit Name", tint = SketchColors.Ink, modifier = Modifier.size(18.dp))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 2. Audio & Playback Card (With Autoplay Switch)
             SketchCard(
                 modifier = Modifier.fillMaxWidth(),
                 slabColor = SketchColors.Orange
@@ -74,6 +122,32 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
+
+                    // Autoplay Switch (Default ON)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Autoplay", color = SketchColors.Ink, fontSize = 14.sp, fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold)
+                            Text("Keep music playing with similar songs", color = SketchColors.MutedText, fontSize = 12.sp, fontFamily = PoppinsFontFamily)
+                        }
+                        Switch(
+                            checked = autoplayEnabled,
+                            onCheckedChange = { viewModel.playbackManager.setAutoplayEnabled(it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = SketchColors.Orange,
+                                checkedTrackColor = SketchColors.Ink,
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = SketchColors.FaintCircle
+                            )
+                        )
+                    }
+
+                    HorizontalDivider(color = SketchColors.FaintCircle)
 
                     // Streaming Quality Selector
                     Row(
@@ -145,177 +219,12 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // 2. Storage & Cache Card
-            SketchCard(
-                modifier = Modifier.fillMaxWidth(),
-                slabColor = SketchColors.Teal
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Storage, contentDescription = null, tint = SketchColors.Teal, modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Storage & Cache",
-                            color = SketchColors.Ink,
-                            fontSize = 17.sp,
-                            fontFamily = PoppinsFontFamily,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Text(
-                        text = "Current limit: ${"%.1f".format(cacheSizeGb)} GB",
-                        color = SketchColors.MutedText,
-                        fontSize = 13.sp,
-                        fontFamily = PoppinsFontFamily
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SketchButton(
-                            text = "Clear Cache",
-                            onClick = { viewModel.clearCache() },
-                            backgroundColor = Color.White,
-                            modifier = Modifier.weight(1f)
-                        )
-                        SketchButton(
-                            text = "Clear History",
-                            onClick = { showConfirmHistoryDialog = true },
-                            backgroundColor = SketchColors.HeartRed,
-                            contentColor = Color.White,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // 3. Backup & Sync Card
+            // 3. Updates & Info Card
             SketchCard(
                 modifier = Modifier.fillMaxWidth(),
                 slabColor = SketchColors.Purple
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.CloudSync, contentDescription = null, tint = SketchColors.Purple, modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Backup & Playlists",
-                            color = SketchColors.Ink,
-                            fontSize = 17.sp,
-                            fontFamily = PoppinsFontFamily,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SketchButton(
-                            text = "Export JSON",
-                            onClick = { showExportDialog = true },
-                            backgroundColor = SketchColors.Purple,
-                            contentColor = Color.White,
-                            modifier = Modifier.weight(1f)
-                        )
-                        SketchButton(
-                            text = "Import JSON",
-                            onClick = { showExportDialog = true },
-                            backgroundColor = Color.White,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // 4. Privacy & Notifications Card
-            SketchCard(
-                modifier = Modifier.fillMaxWidth(),
-                slabColor = SketchColors.Green
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Security, contentDescription = null, tint = SketchColors.Green, modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Privacy & Notifications",
-                            color = SketchColors.Ink,
-                            fontSize = 17.sp,
-                            fontFamily = PoppinsFontFamily,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Push Notifications", color = SketchColors.Ink, fontSize = 14.sp, fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold)
-                            Text("Alerts for updates & releases", color = SketchColors.MutedText, fontSize = 12.sp, fontFamily = PoppinsFontFamily)
-                        }
-                        Switch(
-                            checked = pushNotifications,
-                            onCheckedChange = { pushNotifications = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = SketchColors.Orange,
-                                checkedTrackColor = SketchColors.Ink,
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = SketchColors.FaintCircle
-                            )
-                        )
-                    }
-
-                    HorizontalDivider(color = SketchColors.FaintCircle)
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Private Session", color = SketchColors.Ink, fontSize = 14.sp, fontFamily = PoppinsFontFamily, fontWeight = FontWeight.SemiBold)
-                            Text("Pause playback history tracking", color = SketchColors.MutedText, fontSize = 12.sp, fontFamily = PoppinsFontFamily)
-                        }
-                        Switch(
-                            checked = listeningHistoryOptIn,
-                            onCheckedChange = { listeningHistoryOptIn = it },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = SketchColors.Orange,
-                                checkedTrackColor = SketchColors.Ink,
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = SketchColors.FaintCircle
-                            )
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // 5. Updates & Developer Tools
-            SketchCard(
-                modifier = Modifier.fillMaxWidth(),
-                slabColor = SketchColors.Orange
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -328,9 +237,9 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     ) {
                         Column {
                             Text("Check for Updates", color = SketchColors.Ink, fontSize = 14.sp, fontFamily = PoppinsFontFamily, fontWeight = FontWeight.Bold)
-                            Text("Current version: 1.0.19", color = SketchColors.MutedText, fontSize = 12.sp, fontFamily = PoppinsFontFamily)
+                            Text("Current version: 1.0.21", color = SketchColors.MutedText, fontSize = 12.sp, fontFamily = PoppinsFontFamily)
                         }
-                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = SketchColors.Orange)
+                        Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = SketchColors.Purple)
                     }
 
                     HorizontalDivider(color = SketchColors.FaintCircle)
@@ -352,42 +261,68 @@ fun SettingsScreen(viewModel: MainViewModel) {
                 }
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(36.dp))
+
+            // 4. Footer: "Developed by Mahesh" in small centered sketch title
+            Text(
+                text = "Developed by Mahesh",
+                fontFamily = PoppinsFontFamily,
+                fontWeight = FontWeight.Medium,
+                fontSize = 13.sp,
+                color = SketchColors.MutedText,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(120.dp))
         }
     }
 
-    // Clear History Dialog (Sketch Outline Style)
-    if (showConfirmHistoryDialog) {
+    // Edit Name Dialog (Outlined Sketch style)
+    if (showEditNameDialog) {
         AlertDialog(
-            onDismissRequest = { showConfirmHistoryDialog = false },
+            onDismissRequest = { showEditNameDialog = false },
             title = {
                 Text(
-                    "Clear Listening History",
+                    "Edit Name",
                     fontFamily = PoppinsFontFamily,
                     fontWeight = FontWeight.Bold,
                     color = SketchColors.Ink
                 )
             },
             text = {
-                Text(
-                    "Are you sure you want to clear your listening history? This cannot be undone.",
-                    fontFamily = PoppinsFontFamily,
-                    color = SketchColors.MutedText
-                )
+                Column {
+                    Text(
+                        "Update the name displayed on your Home screen greeting.",
+                        fontFamily = PoppinsFontFamily,
+                        fontSize = 13.sp,
+                        color = SketchColors.MutedText
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    SketchSearchField(
+                        value = editNameInput,
+                        onValueChange = { editNameInput = it },
+                        placeholder = "Enter your name",
+                        leadingIcon = {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = SketchColors.Ink)
+                        }
+                    )
+                }
             },
             confirmButton = {
                 SketchButton(
-                    text = "Clear All",
+                    text = "Save",
                     onClick = {
-                        viewModel.clearPlayHistory()
-                        showConfirmHistoryDialog = false
+                        if (editNameInput.isNotBlank()) {
+                            viewModel.completeOnboarding(editNameInput)
+                        }
+                        showEditNameDialog = false
                     },
-                    backgroundColor = SketchColors.HeartRed,
-                    contentColor = Color.White
+                    backgroundColor = SketchColors.Orange
                 )
             },
             dismissButton = {
-                TextButton(onClick = { showConfirmHistoryDialog = false }) {
+                TextButton(onClick = { showEditNameDialog = false }) {
                     Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
                 }
             },
@@ -397,39 +332,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
         )
     }
 
-    // Backup Dialog (Sketch Outline Style)
-    if (showExportDialog) {
-        AlertDialog(
-            onDismissRequest = { showExportDialog = false },
-            title = {
-                Text(
-                    "Playlist Backup",
-                    color = SketchColors.Ink,
-                    fontFamily = PoppinsFontFamily,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            text = {
-                Text(
-                    "Your playlists have been saved into your internal device storage backup folder in JSON format.",
-                    color = SketchColors.MutedText,
-                    fontFamily = PoppinsFontFamily
-                )
-            },
-            confirmButton = {
-                SketchButton(
-                    text = "Done",
-                    onClick = { showExportDialog = false },
-                    backgroundColor = SketchColors.Teal
-                )
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(18.dp),
-            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
-        )
-    }
-
-    // Audio Quality Dialog (Sketch Outline Style)
+    // Audio Quality Dialog
     if (showQualityDialog) {
         AlertDialog(
             onDismissRequest = { showQualityDialog = false },

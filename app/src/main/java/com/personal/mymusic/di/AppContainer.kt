@@ -39,4 +39,8 @@ class AppContainer(private val context: Context) {
     val playbackManager: com.personal.mymusic.playback.PlaybackManager by lazy {
         com.personal.mymusic.playback.PlaybackManager(context, newPipeService, playlistDao)
     }
+
+    val categoryRepository: com.personal.mymusic.data.category.CategoryRepository by lazy {
+        com.personal.mymusic.data.category.CategoryRepository(context, newPipeService)
+    }
 }

@@ -172,8 +172,9 @@ fun SearchScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .padding(horizontal = 24.dp)
     ) {
+        Spacer(modifier = Modifier.height(16.dp))
         // Top Title
         Text(
             text = "Search",
@@ -353,7 +354,8 @@ fun SearchScreen(
 
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
                 itemsIndexed(results, key = { _, item -> item.id }) { index, item ->
                     val song = Song(

@@ -375,6 +375,35 @@ fun NowPlayingScreen(
                                     color = SketchColors.Ink
                                 )
                             }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            // Autoplay Toggle Chip in Now Playing Screen
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (autoplayEnabled) SketchColors.Orange.copy(alpha = 0.2f) else Color.White)
+                                    .border(1.5.dp, SketchColors.Ink, RoundedCornerShape(50))
+                                    .clickable { viewModel.playbackManager.setAutoplayEnabled(!autoplayEnabled) }
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Default.AllInclusive,
+                                        contentDescription = "Autoplay",
+                                        tint = if (autoplayEnabled) SketchColors.Ink else SketchColors.MutedText,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (autoplayEnabled) "Autoplay ON" else "Autoplay OFF",
+                                        fontSize = 11.sp,
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (autoplayEnabled) SketchColors.Ink else SketchColors.MutedText
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -577,13 +606,17 @@ fun NowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    val (regularQueue, autoplayQueue) = remember(queue) {
+                        queue.partition { !it.isAutoplay }
+                    }
+
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        itemsIndexed(queue) { idx, qSong ->
+                        itemsIndexed(regularQueue) { idx, qSong ->
                             val isCurrent = qSong.id == song.id
                             SketchCard(
                                 modifier = Modifier.fillMaxWidth(),
@@ -643,6 +676,116 @@ fun NowPlayingScreen(
                                             fontFamily = PoppinsFontFamily,
                                             fontWeight = FontWeight.Bold
                                         )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Autoplay · Up next Section
+                        if (autoplayQueue.isNotEmpty()) {
+                            item {
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = "Autoplay · Up next",
+                                        color = SketchColors.Ink,
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp
+                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(50))
+                                            .background(SketchColors.Teal.copy(alpha = 0.2f))
+                                            .border(1.dp, SketchColors.Ink, RoundedCornerShape(50))
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Text(
+                                            text = "Autoplay",
+                                            color = SketchColors.Ink,
+                                            fontSize = 10.sp,
+                                            fontFamily = PoppinsFontFamily,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            itemsIndexed(autoplayQueue) { idx, qSong ->
+                                val isCurrent = qSong.id == song.id
+                                SketchCard(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    slabColor = if (isCurrent) SketchColors.Orange else SketchColors.Teal,
+                                    rotation = 0f,
+                                    onClick = {
+                                        val player = viewModel.playbackManager.controller
+                                        if (player != null) {
+                                            for (i in 0 until player.mediaItemCount) {
+                                                if (player.getMediaItemAt(i).mediaId == qSong.id) {
+                                                    player.seekTo(i, 0L)
+                                                    player.play()
+                                                    break
+                                                }
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        AsyncImage(
+                                            model = qSong.thumbnailUrl,
+                                            contentDescription = qSong.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(42.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, SketchColors.Ink, RoundedCornerShape(8.dp))
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = qSong.title,
+                                                color = SketchColors.Ink,
+                                                fontSize = 13.sp,
+                                                fontFamily = PoppinsFontFamily,
+                                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(
+                                                    text = qSong.channel,
+                                                    color = SketchColors.MutedText,
+                                                    fontSize = 11.sp,
+                                                    fontFamily = PoppinsFontFamily
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "• Autoplay",
+                                                    color = SketchColors.Teal,
+                                                    fontSize = 10.sp,
+                                                    fontFamily = PoppinsFontFamily,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                            }
+                                        }
+                                        if (isCurrent) {
+                                            Text(
+                                                text = "Playing",
+                                                color = SketchColors.Orange,
+                                                fontSize = 11.sp,
+                                                fontFamily = PoppinsFontFamily,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }

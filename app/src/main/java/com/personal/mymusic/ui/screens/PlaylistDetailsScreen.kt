@@ -38,11 +38,23 @@ fun PlaylistDetailsScreen(
     val isPlaying by viewModel.playbackManager.isPlaying.collectAsState()
     val currentSong by viewModel.playbackManager.currentSong.collectAsState()
     val currentlyLoadingSongId by viewModel.playbackManager.currentlyLoadingSongId.collectAsState()
+    val likedPlaylistId by viewModel.likedPlaylistId.collectAsState()
 
-    var showDeleteConfirmDialog by remember { mutableStateOf<Song?>(null) }
+    val suggestedSongs by viewModel.playlistRecommendations.collectAsState()
+    val isLoadingSuggestions by viewModel.isLoadingRecommendations.collectAsState()
 
-    LaunchedEffect(playlistId) {
+    var showDeletePlaylistDialog by remember { mutableStateOf(false) }
+    var showRemoveSongDialog by remember { mutableStateOf<Song?>(null) }
+
+    val isLikedPlaylist = playlistId == likedPlaylistId || playlistName.equals("Liked Songs", ignoreCase = true)
+
+    LaunchedEffect(playlistId, playlistName) {
         viewModel.selectPlaylist(playlistId)
+        viewModel.fetchPlaylistRecommendations(playlistName, songs)
+    }
+
+    LaunchedEffect(songs.size) {
+        viewModel.fetchPlaylistRecommendations(playlistName, songs)
     }
 
     DisposableEffect(Unit) {
@@ -64,9 +76,11 @@ fun PlaylistDetailsScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(horizontal = 24.dp)
         ) {
-            // Top Bar: Back Button (orange rounded square) + "My Playlist" + Share Button
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 1. Top Bar: Back Button + Playlist Title + Delete Button + Share
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -96,25 +110,33 @@ fun PlaylistDetailsScreen(
                     color = SketchColors.Ink,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 12.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
+                    textAlign = TextAlign.Center
                 )
 
-                SketchIconButton(
-                    onClick = { /* Share playlist */ },
-                    backgroundColor = Color.White,
-                    size = 42.dp,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Share,
-                        contentDescription = "Share",
-                        tint = SketchColors.Ink,
-                        modifier = Modifier.size(20.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Delete Playlist button (hidden for Liked Songs)
+                    if (!isLikedPlaylist) {
+                        SketchIconButton(
+                            onClick = { showDeletePlaylistDialog = true },
+                            backgroundColor = SketchColors.HeartRed.copy(alpha = 0.15f),
+                            size = 42.dp,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete Playlist",
+                                tint = SketchColors.HeartRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Subtitle info
             Row(
@@ -133,7 +155,7 @@ fun PlaylistDetailsScreen(
                 if (songs.isNotEmpty()) {
                     SketchButton(
                         text = "Play All",
-                        onClick = { viewModel.playbackManager.playSongImmediate(songs.first()) },
+                        onClick = { viewModel.playbackManager.playPlaylist(songs) },
                         backgroundColor = SketchColors.Teal,
                         leadingIcon = {
                             Icon(Icons.Default.PlayArrow, contentDescription = null, tint = SketchColors.Ink, modifier = Modifier.size(16.dp))
@@ -142,28 +164,51 @@ fun PlaylistDetailsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            val sampleSongs = remember {
-                listOf(
-                    Song("happier", "Happier", "Marshmello", 278, "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400"),
-                    Song("sad_song", "Sad Song", "We The Kings", 204, "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400"),
-                    Song("put_your_hands", "Put Your Hands", "Forest Blakk", 250, "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400"),
-                    Song("hate_the_other_side", "Hate the Other Side", "Marshmello", 220, "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400")
-                )
-            }
-            val displaySongs = if (songs.isNotEmpty()) songs else sampleSongs
-
-            // Staggered Tilted Track Cards with Pins (matching design image Screen 3)
+            // Track list and Suggested songs section in LazyColumn
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(vertical = 8.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 120.dp)
             ) {
-                itemsIndexed(displaySongs, key = { _, s -> s.id }) { index, song ->
-                        val tilt = if (index % 2 == 0) -2.0f else 2.2f
+                if (songs.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.QueueMusic,
+                                    contentDescription = null,
+                                    tint = SketchColors.MutedText,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "This playlist is empty.",
+                                    color = SketchColors.Ink,
+                                    fontFamily = PoppinsFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = "Add suggested tracks below to start listening!",
+                                    color = SketchColors.MutedText,
+                                    fontFamily = PoppinsFontFamily,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    itemsIndexed(songs, key = { _, s -> s.id }) { index, song ->
+                        val tilt = if (index % 2 == 0) -1.8f else 1.8f
                         val isCurrentPlaying = currentSong?.id == song.id
                         val slab = if (isCurrentPlaying) SketchColors.Orange else slabColorForIndex(index)
 
@@ -172,7 +217,7 @@ fun PlaylistDetailsScreen(
                             slabColor = slab,
                             rotation = tilt,
                             showPin = true,
-                            onClick = { viewModel.playbackManager.playSongImmediate(song) }
+                            onClick = { viewModel.playbackManager.playPlaylist(songs, startIndex = index) }
                         ) {
                             Row(
                                 modifier = Modifier
@@ -180,7 +225,6 @@ fun PlaylistDetailsScreen(
                                     .padding(horizontal = 14.dp, vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                // Thumbnail
                                 AsyncImage(
                                     model = song.thumbnailUrl,
                                     contentDescription = song.title,
@@ -204,10 +248,12 @@ fun PlaylistDetailsScreen(
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Text(
-                                        text = formatDuration(song.durationSeconds),
+                                        text = "${song.channel} • ${formatDuration(song.durationSeconds)}",
                                         fontSize = 12.sp,
                                         fontFamily = PoppinsFontFamily,
-                                        color = SketchColors.MutedText
+                                        color = SketchColors.MutedText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
 
@@ -218,13 +264,12 @@ fun PlaylistDetailsScreen(
                                         strokeWidth = 2.dp
                                     )
                                 } else {
-                                    // Circular play/pause button
                                     SketchIconButton(
                                         onClick = {
                                             if (isCurrentPlaying) {
                                                 viewModel.playbackManager.togglePlayPause()
                                             } else {
-                                                viewModel.playbackManager.playSongImmediate(song)
+                                                viewModel.playbackManager.playPlaylist(songs, startIndex = index)
                                             }
                                         },
                                         backgroundColor = if (isCurrentPlaying) SketchColors.Orange else Color.White,
@@ -241,14 +286,14 @@ fun PlaylistDetailsScreen(
                                     }
                                 }
 
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
 
                                 IconButton(
-                                    onClick = { showDeleteConfirmDialog = song },
+                                    onClick = { showRemoveSongDialog = song },
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.DeleteOutline,
+                                        imageVector = Icons.Default.Close,
                                         contentDescription = "Remove",
                                         tint = SketchColors.MutedText,
                                         modifier = Modifier.size(18.dp)
@@ -259,43 +304,202 @@ fun PlaylistDetailsScreen(
                     }
                 }
 
-                // Bottom Controls Row per Screen 3 in reference image
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = { /* Repeat toggle */ }) {
-                        Icon(Icons.Default.Repeat, contentDescription = "Repeat", tint = SketchColors.Ink)
+                // ---- Suggested Songs Section ----
+                item {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "Suggested songs",
+                                color = SketchColors.Ink,
+                                fontSize = 18.sp,
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Based on this playlist",
+                                color = SketchColors.MutedText,
+                                fontSize = 12.sp,
+                                fontFamily = PoppinsFontFamily
+                            )
+                        }
+
+                        if (isLoadingSuggestions) {
+                            CircularProgressIndicator(
+                                color = SketchColors.Orange,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            IconButton(
+                                onClick = { viewModel.fetchPlaylistRecommendations(playlistName, songs) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = SketchColors.Ink)
+                            }
+                        }
                     }
-                    IconButton(onClick = { viewModel.playbackManager.skipToPrevious() }) {
-                        Icon(Icons.Default.SkipPrevious, contentDescription = "Prev", tint = SketchColors.Ink, modifier = Modifier.size(28.dp))
-                    }
-                    // Orange Circular Play/Pause button with 3dp drop
-                    SketchPlayButton(
-                        isPlaying = isPlaying,
-                        onClick = { viewModel.playbackManager.togglePlayPause() },
-                        size = 56.dp,
-                        iconSize = 28.dp,
-                        backgroundColor = SketchColors.Orange
-                    )
-                    IconButton(onClick = { viewModel.playbackManager.skipToNext() }) {
-                        Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = SketchColors.Ink, modifier = Modifier.size(28.dp))
-                    }
-                    IconButton(onClick = { /* Shuffle toggle */ }) {
-                        Icon(Icons.Default.Shuffle, contentDescription = "Shuffle", tint = SketchColors.Ink)
+                }
+
+                if (suggestedSongs.isNotEmpty()) {
+                    itemsIndexed(suggestedSongs, key = { _, s -> "sugg_${s.id}" }) { idx, item ->
+                        val suggSong = Song(
+                            id = item.id,
+                            title = item.title,
+                            channel = item.channel,
+                            durationSeconds = item.durationSeconds,
+                            thumbnailUrl = item.thumbnailUrl
+                        )
+                        val isCurrentPlaying = currentSong?.id == item.id
+                        val slab = slabColorForIndex(idx)
+
+                        SketchCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            slabColor = slab,
+                            showPin = false,
+                            onClick = { viewModel.playbackManager.playSongImmediate(suggSong) }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                AsyncImage(
+                                    model = item.thumbnailUrl,
+                                    contentDescription = item.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .border(1.5.dp, SketchColors.Ink, RoundedCornerShape(10.dp))
+                                )
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = item.title,
+                                        fontSize = 13.sp,
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SketchColors.Ink,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = "${item.channel} • ${formatDuration(item.durationSeconds)}",
+                                        fontSize = 11.sp,
+                                        fontFamily = PoppinsFontFamily,
+                                        color = SketchColors.MutedText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                // Add button ("+")
+                                SketchIconButton(
+                                    onClick = {
+                                        viewModel.addSongToPlaylist(playlistId, suggSong)
+                                    },
+                                    backgroundColor = SketchColors.Teal,
+                                    size = 36.dp,
+                                    dropOffset = 2.dp,
+                                    shape = CircleShape
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Add to playlist",
+                                        tint = SketchColors.Ink,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                // Play button
+                                SketchIconButton(
+                                    onClick = {
+                                        if (isCurrentPlaying) {
+                                            viewModel.playbackManager.togglePlayPause()
+                                        } else {
+                                            viewModel.playbackManager.playSongImmediate(suggSong)
+                                        }
+                                    },
+                                    backgroundColor = if (isCurrentPlaying) SketchColors.Orange else Color.White,
+                                    shape = CircleShape,
+                                    size = 36.dp,
+                                    dropOffset = 2.dp
+                                ) {
+                                    Icon(
+                                        imageVector = if (isCurrentPlaying && isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                        contentDescription = "Play",
+                                        tint = SketchColors.Ink,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
+    }
 
-    // Remove Song Confirmation Dialog (Sketch Outline Style)
-    if (showDeleteConfirmDialog != null) {
-        val songToDelete = showDeleteConfirmDialog!!
+    // Delete Playlist Confirmation Dialog
+    if (showDeletePlaylistDialog) {
         AlertDialog(
-            onDismissRequest = { showDeleteConfirmDialog = null },
+            onDismissRequest = { showDeletePlaylistDialog = false },
+            title = {
+                Text(
+                    "Delete Playlist",
+                    fontFamily = PoppinsFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    color = SketchColors.Ink
+                )
+            },
+            text = {
+                Text(
+                    "Delete \"$playlistName\"? The songs inside will remain in your library.",
+                    color = SketchColors.Ink,
+                    fontFamily = PoppinsFontFamily,
+                    fontSize = 14.sp
+                )
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp)),
+            confirmButton = {
+                SketchButton(
+                    text = "Delete",
+                    onClick = {
+                        viewModel.deletePlaylist(playlistId)
+                        showDeletePlaylistDialog = false
+                        onBack()
+                    },
+                    backgroundColor = SketchColors.HeartRed,
+                    contentColor = Color.White
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePlaylistDialog = false }) {
+                    Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
+                }
+            }
+        )
+    }
+
+    // Remove Song Confirmation Dialog
+    if (showRemoveSongDialog != null) {
+        val songToDelete = showRemoveSongDialog!!
+        AlertDialog(
+            onDismissRequest = { showRemoveSongDialog = null },
             title = {
                 Text(
                     "Remove Song",
@@ -320,14 +524,14 @@ fun PlaylistDetailsScreen(
                     text = "Remove",
                     onClick = {
                         viewModel.removeSongFromPlaylist(playlistId, songToDelete.id)
-                        showDeleteConfirmDialog = null
+                        showRemoveSongDialog = null
                     },
                     backgroundColor = SketchColors.HeartRed,
                     contentColor = Color.White
                 )
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteConfirmDialog = null }) {
+                TextButton(onClick = { showRemoveSongDialog = null }) {
                     Text("Cancel", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
                 }
             }

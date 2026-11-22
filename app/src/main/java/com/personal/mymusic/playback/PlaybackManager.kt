@@ -71,6 +71,9 @@ class PlaybackManager(
     private val _queue = MutableStateFlow<List<Song>>(emptyList())
     val queue: StateFlow<List<Song>> = _queue.asStateFlow()
 
+    val autoplayEngine = AutoplayRecommendationEngine(context, newPipeService, playlistDao)
+    private var songStartTime: Long = System.currentTimeMillis()
+
     private val _autoplayEnabled = MutableStateFlow(context.getSharedPreferences("music_prefs", Context.MODE_PRIVATE).getBoolean("autoplay_enabled", true))
     val autoplayEnabled: StateFlow<Boolean> = _autoplayEnabled.asStateFlow()
 
@@ -123,6 +126,21 @@ class PlaybackManager(
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                // Record skip or play duration for taste profile
+                val prevSong = _currentSong.value
+                if (prevSong != null) {
+                    val playedDurationMs = System.currentTimeMillis() - songStartTime
+                    val songTotalMs = (_duration.value).takeIf { it > 0 } ?: (prevSong.durationSeconds * 1000)
+                    if (playedDurationMs < 30_000 && reason != Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                        autoplayEngine.recordSkipUnder30Seconds(prevSong.channel)
+                    } else if (songTotalMs > 0 && playedDurationMs >= (songTotalMs * 0.9)) {
+                        autoplayEngine.recordPlayedToEnd(prevSong.channel)
+                    } else if (songTotalMs > 0 && playedDurationMs >= (songTotalMs * 0.5)) {
+                        autoplayEngine.recordPlayedOver50Percent(prevSong.channel)
+                    }
+                }
+                songStartTime = System.currentTimeMillis()
+
                 updateCurrentSongFromMediaItem(mediaItem)
                 _duration.value = controller.duration.coerceAtLeast(0)
                 triggerPrefetchNextSong()
@@ -168,6 +186,8 @@ class PlaybackManager(
                 android.util.Log.d("PlaybackManager", "PLAYBACK_TIMING: onPlaybackStateChanged -> $stateName at t=${System.currentTimeMillis()}")
                 if (playbackState == Player.STATE_READY) {
                     triggerPrefetchNextSong()
+                } else if (playbackState == Player.STATE_ENDED) {
+                    checkAndTriggerAutoplay()
                 }
             }
 
@@ -593,11 +613,26 @@ class PlaybackManager(
         }
     }
 
+    fun appendSongsToQueue(songs: List<Song>) {
+        val player = controller ?: return
+        scope.launch(Dispatchers.Main) {
+            val currentIds = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
+            val newSongs = songs.filter { it.id !in currentIds }
+            if (newSongs.isNotEmpty()) {
+                val mediaItems = newSongs.map { createMediaItem(it) }
+                player.addMediaItems(mediaItems)
+                android.util.Log.d("PlaybackManager", "Autoplay: successfully added ${newSongs.size} songs to queue")
+                updateQueueFromController(player)
+                triggerPrefetchNextSong()
+            }
+        }
+    }
+
     private fun checkAndTriggerAutoplay() {
         val player = controller ?: return
         val currentSong = _currentSong.value ?: return
         
-        if (_autoplayEnabled.value && (player.mediaItemCount - player.currentMediaItemIndex) <= 1) {
+        if (_autoplayEnabled.value && (player.mediaItemCount - player.currentMediaItemIndex) <= 2) {
             if (lastAutoplayTriggerSongId != currentSong.id) {
                 lastAutoplayTriggerSongId = currentSong.id
                 fetchAndAppendRelatedSongs(currentSong)
@@ -610,40 +645,9 @@ class PlaybackManager(
         autoplayJob = scope.launch {
             try {
                 android.util.Log.d("PlaybackManager", "Autoplay: pre-fetching related songs for: ${currentSong.title}")
-                val query = deriveRelatedQuery(currentSong)
-                android.util.Log.d("PlaybackManager", "Autoplay: search query: $query")
-                val results = newPipeService.search(query)
-                
-                val filteredResults = results
-                    .filter { it.id != currentSong.id } // Filter out the current song
-                    
-                val topResults = filteredResults.take(5) // Take top 3-5 similar songs
-                if (topResults.isNotEmpty()) {
-                    withContext(Dispatchers.Main) {
-                        val player = controller ?: return@withContext
-                        val currentIds = (0 until player.mediaItemCount).map { player.getMediaItemAt(it).mediaId }.toSet()
-                        
-                        val newSongs = topResults
-                            .filter { it.id !in currentIds }
-                            .map { res ->
-                                Song(
-                                    id = res.id,
-                                    title = res.title,
-                                    channel = res.channel,
-                                    durationSeconds = res.durationSeconds,
-                                    thumbnailUrl = res.thumbnailUrl,
-                                    isAutoplay = true
-                                )
-                            }
-                            
-                        if (newSongs.isNotEmpty()) {
-                            val mediaItems = newSongs.map { createMediaItem(it) }
-                            player.addMediaItems(mediaItems)
-                            android.util.Log.d("PlaybackManager", "Autoplay: successfully added ${newSongs.size} songs to queue")
-                            updateQueueFromController(player)
-                            triggerPrefetchNextSong()
-                        }
-                    }
+                val recommended = autoplayEngine.buildRecommendations(currentSong, _queue.value)
+                if (recommended.isNotEmpty()) {
+                    appendSongsToQueue(recommended)
                 }
             } catch (e: Exception) {
                 android.util.Log.e("PlaybackManager", "Autoplay failed to fetch related songs", e)

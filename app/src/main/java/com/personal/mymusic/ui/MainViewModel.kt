@@ -32,8 +32,26 @@ class MainViewModel(
 
     private val sharedPrefs = application.getSharedPreferences("music_prefs", Application.MODE_PRIVATE)
     
-    private val _userName = MutableStateFlow(sharedPrefs.getString("user_custom_name", "Vibe") ?: "Vibe")
+    private val _userName = MutableStateFlow(sharedPrefs.getString("user_custom_name", "") ?: "")
     val userName: StateFlow<String> = _userName.asStateFlow()
+
+    private val _hasCompletedOnboarding = MutableStateFlow(
+        sharedPrefs.getBoolean("onboarding_completed_v1021", false) &&
+        !sharedPrefs.getString("user_custom_name", null).isNullOrBlank()
+    )
+    val hasCompletedOnboarding: StateFlow<Boolean> = _hasCompletedOnboarding.asStateFlow()
+
+    fun completeOnboarding(name: String) {
+        val trimmed = name.trim()
+        val finalName = if (trimmed.isBlank()) "Mahesh" else trimmed
+        sharedPrefs.edit()
+            .putString("user_custom_name", finalName)
+            .putBoolean("onboarding_completed_v1021", true)
+            .apply()
+        _userName.value = finalName
+        _hasCompletedOnboarding.value = true
+        _greetingState.value = calculateGreetingState()
+    }
 
     data class GreetingState(
         val title: String = "Good Evening 🌆",
@@ -223,7 +241,7 @@ class MainViewModel(
         _isPlayerExpanded.value = expanded
     }
 
-    // ---- Playlist Recommendations ----
+    // ---- Playlist Recommendations & Management ----
     private val _playlistRecommendations = MutableStateFlow<List<SearchResult>>(emptyList())
     val playlistRecommendations: StateFlow<List<SearchResult>> = _playlistRecommendations.asStateFlow()
 
@@ -233,58 +251,84 @@ class MainViewModel(
     private var recommendationsJob: Job? = null
 
     /**
-     * Derives artist/keyword-based search queries from the songs in a playlist
-     * and fetches recommendations via YouTube search, filtering out already-added songs.
+     * Derives artist/keyword-based search queries from the playlist name and its songs,
+     * fetching 8-10 recommendations, filtering out already-added songs.
      */
-    fun fetchPlaylistRecommendations(songs: List<Song>) {
+    fun fetchPlaylistRecommendations(playlistName: String = "", songs: List<Song> = emptyList()) {
         recommendationsJob?.cancel()
-        if (songs.isEmpty()) {
-            _playlistRecommendations.value = emptyList()
-            return
-        }
         recommendationsJob = viewModelScope.launch {
             _isLoadingRecommendations.value = true
             try {
-                // Extract top artists (by frequency in playlist)
-                val artistCounts = songs.groupingBy { it.channel.trim() }.eachCount()
-                val topArtists = artistCounts.entries.sortedByDescending { it.value }.take(3).map { it.key }
-
-                // Keyword heuristics: detect language/genre from artist names
-                val isBollywood = topArtists.any { artist ->
-                    listOf("arijit", "pritam", "atif", "shreya", "sonu", "kumar sanu",
-                           "neha", "armaan", "jubin", "mohit").any { k -> artist.lowercase().contains(k) }
-                }
-                val isPunjabi = topArtists.any { artist ->
-                    listOf("diljit", "sidhu", "ap dhillon", "karan", "shubh", "g khan").any { k -> artist.lowercase().contains(k) }
-                }
-                val genreTag = when {
-                    isBollywood -> "hindi songs"
-                    isPunjabi -> "punjabi songs"
-                    else -> "songs"
-                }
-
                 val existingIds = songs.map { it.id }.toSet()
-                val results = mutableListOf<SearchResult>()
+                val queries = mutableListOf<String>()
 
-                for (artist in topArtists) {
+                if (songs.isNotEmpty()) {
+                    val artistCounts = songs.groupingBy { it.channel.trim() }.eachCount()
+                    val topArtists = artistCounts.entries.sortedByDescending { it.value }.take(3).map { it.key }
+                    for (a in topArtists) {
+                        queries.add("$a songs")
+                    }
+                    val firstSongClean = songs.first().title.replace(Regex("\\((.*?)\\)"), "").trim()
+                    queries.add("$firstSongClean similar songs")
+                }
+                if (playlistName.isNotBlank() && playlistName != "Liked Songs") {
+                    queries.add("$playlistName songs")
+                    queries.add("$playlistName hits")
+                }
+
+                if (queries.isEmpty()) {
+                    queries.add("trending songs")
+                    queries.add("top hits music")
+                }
+
+                val results = mutableListOf<SearchResult>()
+                for (query in queries.take(4)) {
                     if (!isActive) break
-                    val query = "$artist $genreTag"
                     try {
                         val found = newPipeService.search(query)
-                        results.addAll(found.filter { it.id !in existingIds })
+                        for (res in found) {
+                            if (res.id in existingIds) continue
+                            if (res.durationSeconds > 600 || (res.durationSeconds in 1..59)) continue
+                            val t = res.title.lowercase()
+                            if (t.contains("live stream") || t.contains("full album") || t.contains("jukebox") || t.contains("1 hour")) continue
+                            results.add(res)
+                        }
                     } catch (e: Exception) {
                         android.util.Log.e("Recommendations", "Failed query: $query", e)
                     }
                 }
 
-                // Deduplicate and take top 8
-                _playlistRecommendations.value = results.distinctBy { it.id }.take(8)
+                if (results.isEmpty()) {
+                    try {
+                        val feed = newPipeService.getTrendingFeed()
+                        feed.values.flatten().forEach { res ->
+                            if (res.id !in existingIds && res.durationSeconds in 60..600) {
+                                results.add(res)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+
+                _playlistRecommendations.value = results.distinctBy { it.id }.take(10)
             } catch (e: Exception) {
                 android.util.Log.e("Recommendations", "fetchPlaylistRecommendations failed", e)
                 _playlistRecommendations.value = emptyList()
             } finally {
                 _isLoadingRecommendations.value = false
             }
+        }
+    }
+
+    // Category Pages
+    private val categoryRepository = (application as MyApplication).container.categoryRepository
+    private val _currentCategoryState = MutableStateFlow(com.personal.mymusic.data.category.CategorySongsState())
+    val currentCategoryState: StateFlow<com.personal.mymusic.data.category.CategorySongsState> = _currentCategoryState.asStateFlow()
+
+    fun loadCategory(categoryName: String, forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            _currentCategoryState.value = _currentCategoryState.value.copy(isLoading = true, error = null)
+            val state = categoryRepository.getCategorySongs(categoryName, forceRefresh)
+            _currentCategoryState.value = state
         }
     }
 
@@ -528,6 +572,8 @@ class MainViewModel(
 
     fun deletePlaylist(playlistId: Long) {
         viewModelScope.launch {
+            val likedId = _likedPlaylistId.value
+            if (playlistId == likedId) return@launch // Never delete Liked Songs
             playlistDao.deletePlaylist(playlistId)
             if (_selectedPlaylistId.value == playlistId) {
                 _selectedPlaylistId.value = null
@@ -542,6 +588,7 @@ class MainViewModel(
     fun addSongToPlaylist(playlistId: Long, song: Song) {
         viewModelScope.launch {
             playlistDao.addSongToPlaylist(playlistId, song.toEntity())
+            _playlistRecommendations.value = _playlistRecommendations.value.filter { it.id != song.id }
         }
     }
 
@@ -580,6 +627,7 @@ class MainViewModel(
                 playlistDao.deletePlaylistSongCrossRef(likedId, song.id)
             } else {
                 playlistDao.addSongToPlaylist(likedId, songEntity)
+                playbackManager.autoplayEngine.recordLiked(song.channel)
             }
         }
     }

@@ -80,10 +80,11 @@ class MainActivity : ComponentActivity() {
             MyMusicTheme(isDarkTheme = isDarkTheme) {
                 val currentScreen by viewModel.currentScreen.collectAsState()
                 val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
+                val hasCompletedOnboarding by viewModel.hasCompletedOnboarding.collectAsState()
 
                 // Unified back handler
                 val backStack by viewModel.backStack.collectAsState()
-                BackHandler(enabled = isPlayerExpanded || currentScreen !is AppScreen.Home || backStack.isNotEmpty()) {
+                BackHandler(enabled = hasCompletedOnboarding && (isPlayerExpanded || currentScreen !is AppScreen.Home || backStack.isNotEmpty())) {
                     viewModel.popBackStack()
                 }
 
@@ -265,103 +266,120 @@ class MainActivity : ComponentActivity() {
                         else -> {}
                     }
 
-                    Scaffold(
-                        containerColor = Color.Transparent,
-                        bottomBar = {
-                            Column(
-                                modifier = Modifier.background(Color.Transparent)
-                            ) {
-                                // Mini Player in Outlined Slab Capsule style
-                                AnimatedVisibility(
-                                    visible = currentSong != null && !isPlayerExpanded,
-                                    enter = slideInVertically(
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioNoBouncy,
-                                            stiffness = Spring.StiffnessMediumLow
-                                        )
-                                    ) { it },
-                                    exit = slideOutVertically(
-                                        animationSpec = spring(
-                                            dampingRatio = Spring.DampingRatioNoBouncy,
-                                            stiffness = Spring.StiffnessMediumLow
-                                        )
-                                    ) { it }
+                    if (!hasCompletedOnboarding) {
+                        OnboardingScreen(
+                            onContinue = { name -> viewModel.completeOnboarding(name) }
+                        )
+                    } else {
+                        Scaffold(
+                            containerColor = Color.Transparent,
+                            bottomBar = {
+                                Column(
+                                    modifier = Modifier.background(Color.Transparent)
                                 ) {
-                                    currentSong?.let { song ->
-                                        MiniPlayer(
-                                            song = song,
-                                            isPlaying = isPlaying,
-                                            progress = if (duration > 0) position.toFloat() / duration else 0f,
-                                            onPlayPauseClick = { playbackManager.togglePlayPause() },
-                                            onCloseClick = { playbackManager.stop() },
-                                            onClick = { viewModel.setPlayerExpanded(true) }
-                                        )
+                                    // Mini Player in Outlined Slab Capsule style
+                                    AnimatedVisibility(
+                                        visible = currentSong != null && !isPlayerExpanded,
+                                        enter = slideInVertically(
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        ) { it },
+                                        exit = slideOutVertically(
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                                stiffness = Spring.StiffnessMediumLow
+                                            )
+                                        ) { it }
+                                    ) {
+                                        currentSong?.let { song ->
+                                            MiniPlayer(
+                                                song = song,
+                                                isPlaying = isPlaying,
+                                                progress = if (duration > 0) position.toFloat() / duration else 0f,
+                                                onPlayPauseClick = { playbackManager.togglePlayPause() },
+                                                onCloseClick = { playbackManager.stop() },
+                                                onClick = { viewModel.setPlayerExpanded(true) }
+                                            )
+                                        }
                                     }
-                                }
 
-                                // Sketch Bottom Navigation Bar
-                                SketchBottomNav(
-                                    currentScreen = currentScreen,
-                                    onNavigate = { screen -> viewModel.navigateTo(screen) }
-                                )
+                                    // Sketch Bottom Navigation Bar
+                                    SketchBottomNav(
+                                        currentScreen = currentScreen,
+                                        onNavigate = { screen -> viewModel.navigateTo(screen) }
+                                    )
+                                }
                             }
-                        }
-                    ) { innerPadding ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(innerPadding)
-                        ) {
-                            when (val screen = currentScreen) {
-                                is AppScreen.Home -> HomeScreen(
-                                    viewModel = viewModel,
-                                    onPlaylistClick = { id, name ->
-                                        viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
-                                    }
-                                )
-                                is AppScreen.Search -> SearchScreen(
-                                    viewModel = viewModel,
-                                    onPlaylistClick = { id, name ->
-                                        viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
-                                    }
-                                )
-                                is AppScreen.Library -> LibraryScreen(
-                                    viewModel = viewModel,
-                                    onPlaylistClick = { id, name ->
-                                        viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
-                                    }
-                                )
-                                is AppScreen.PlaylistDetails -> PlaylistDetailsScreen(
-                                    playlistId = screen.playlistId,
-                                    playlistName = screen.playlistName,
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popBackStack() }
-                                )
-                                is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
-                                is AppScreen.AlbumDetails -> AlbumDetailsScreen(
-                                    albumId = screen.albumId,
-                                    albumName = screen.albumName,
-                                    artistName = screen.artistName,
-                                    coverUrl = screen.coverUrl,
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popBackStack() }
-                                )
-                                is AppScreen.ArtistDetails -> ArtistDetailsScreen(
-                                    artistId = screen.artistId,
-                                    artistName = screen.artistName,
-                                    avatarUrl = screen.avatarUrl,
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popBackStack() }
-                                )
-                                is AppScreen.SongDetails -> SongDetailsScreen(
-                                    song = screen.song,
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popBackStack() }
-                                )
-                                is AppScreen.DeveloperTools -> DeveloperToolsScreen(
-                                    viewModel = viewModel,
-                                    onBack = { viewModel.popBackStack() }
-                                )
+                        ) { innerPadding ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                            ) {
+                                when (val screen = currentScreen) {
+                                    is AppScreen.Home -> HomeScreen(
+                                        viewModel = viewModel,
+                                        onPlaylistClick = { id, name ->
+                                            viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                        },
+                                        onCategoryClick = { catName ->
+                                            viewModel.navigateTo(AppScreen.CategoryDetails(catName))
+                                        }
+                                    )
+                                    is AppScreen.Search -> SearchScreen(
+                                        viewModel = viewModel,
+                                        onPlaylistClick = { id, name ->
+                                            viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                        }
+                                    )
+                                    is AppScreen.Library -> LibraryScreen(
+                                        viewModel = viewModel,
+                                        onPlaylistClick = { id, name ->
+                                            viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                        }
+                                    )
+                                    is AppScreen.PlaylistDetails -> PlaylistDetailsScreen(
+                                        playlistId = screen.playlistId,
+                                        playlistName = screen.playlistName,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popBackStack() }
+                                    )
+                                    is AppScreen.CategoryDetails -> CategoryDetailsScreen(
+                                        categoryName = screen.categoryName,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popBackStack() },
+                                        onPlaylistClick = { id, name ->
+                                            viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                        }
+                                    )
+                                    is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
+                                    is AppScreen.AlbumDetails -> AlbumDetailsScreen(
+                                        albumId = screen.albumId,
+                                        albumName = screen.albumName,
+                                        artistName = screen.artistName,
+                                        coverUrl = screen.coverUrl,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popBackStack() }
+                                    )
+                                    is AppScreen.ArtistDetails -> ArtistDetailsScreen(
+                                        artistId = screen.artistId,
+                                        artistName = screen.artistName,
+                                        avatarUrl = screen.avatarUrl,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popBackStack() }
+                                    )
+                                    is AppScreen.SongDetails -> SongDetailsScreen(
+                                        song = screen.song,
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popBackStack() }
+                                    )
+                                    is AppScreen.DeveloperTools -> DeveloperToolsScreen(
+                                        viewModel = viewModel,
+                                        onBack = { viewModel.popBackStack() }
+                                    )
+                                }
                             }
                         }
                     }

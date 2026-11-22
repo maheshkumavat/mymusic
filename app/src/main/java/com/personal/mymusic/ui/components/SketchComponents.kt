@@ -8,8 +8,10 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CornerBasedShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -314,9 +316,10 @@ fun SketchSearchField(
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .height(52.dp)
             .background(Color.White, RoundedCornerShape(18.dp))
             .border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -333,7 +336,8 @@ fun SketchSearchField(
                         text = placeholder,
                         color = SketchColors.MutedText,
                         fontFamily = PoppinsFontFamily,
-                        fontSize = 15.sp
+                        fontSize = 15.sp,
+                        maxLines = 1
                     )
                 }
                 BasicTextField(
@@ -367,39 +371,50 @@ fun SketchTabRow(
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         tabs.forEachIndexed { index, title ->
             val selected = index == selectedIndex
-            Box(
+            Column(
                 modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
                     ) { onTabSelected(index) }
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                if (selected) {
-                    // Orange highlighter marker underline
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth(1.05f)
-                            .height(8.dp)
-                            .offset(y = 2.dp)
-                            .background(SketchColors.Orange, RoundedCornerShape(4.dp))
-                    )
-                }
                 Text(
                     text = title,
                     fontFamily = PoppinsFontFamily,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
                     fontSize = 15.sp,
-                    color = if (selected) SketchColors.Ink else SketchColors.MutedText
+                    color = if (selected) SketchColors.Ink else SketchColors.MutedText,
+                    maxLines = 1,
+                    softWrap = false
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .width(28.dp)
+                            .height(4.dp)
+                            .background(SketchColors.Orange, RoundedCornerShape(2.dp))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .width(28.dp)
+                            .height(4.dp)
+                            .background(Color.Transparent)
+                    )
+                }
             }
         }
     }

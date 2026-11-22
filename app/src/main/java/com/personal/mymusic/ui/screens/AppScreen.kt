@@ -11,6 +11,7 @@ sealed class AppScreen {
     data class AlbumDetails(val albumId: String, val albumName: String, val artistName: String, val coverUrl: String) : AppScreen()
     data class ArtistDetails(val artistId: String, val artistName: String, val avatarUrl: String) : AppScreen()
     data class SongDetails(val song: Song) : AppScreen()
+    data class CategoryDetails(val categoryName: String) : AppScreen()
     object DeveloperTools : AppScreen()
 }
 
