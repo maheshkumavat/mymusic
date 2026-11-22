@@ -1,0 +1,44 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Monochrome layer for themed icons: 6 bars in one color inside safe zone -->
+    <group
+        android:scaleX="0.46"
+        android:scaleY="0.46"
+        android:translateX="9.15"
+        android:translateY="8.0">
+
+        <!-- Bar 1 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M45,85 A7,7 0 0,1 52,92 L52,108 A7,7 0 0,1 38,108 L38,92 A7,7 0 0,1 45,85 Z" />
+
+        <!-- Bar 2 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M66,69 A7,7 0 0,1 73,76 L73,124 A7,7 0 0,1 59,124 L59,76 A7,7 0 0,1 66,69 Z" />
+
+        <!-- Bar 3 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M87,54 A7,7 0 0,1 94,61 L94,139 A7,7 0 0,1 80,139 L80,61 A7,7 0 0,1 87,54 Z" />
+
+        <!-- Bar 4 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M108,74 A7,7 0 0,1 115,81 L115,119 A7,7 0 0,1 101,119 L101,81 A7,7 0 0,1 108,74 Z" />
+
+        <!-- Bar 5 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M129,62 A7,7 0 0,1 136,69 L136,131 A7,7 0 0,1 122,131 L122,69 A7,7 0 0,1 129,62 Z" />
+
+        <!-- Bar 6 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M150,81 A7,7 0 0,1 157,88 L157,112 A7,7 0 0,1 143,112 L143,88 A7,7 0 0,1 150,81 Z" />
+    </group>
+</vector>

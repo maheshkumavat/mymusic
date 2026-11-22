@@ -1,6 +1,9 @@
 .gradle/
 .tools/
 local.properties
+keystore.properties
+*.keystore
+*.jks
 .idea/
 *.iml
 .DS_Store
@@ -11,4 +14,8 @@ local.properties
 app/build/
 .navigation/
 *.apk
-!app/release.keystore
+ui*.xml
+anr*.txt
+my_latest_anr.txt
+mymusic_anr*.txt
+build_errors.txt

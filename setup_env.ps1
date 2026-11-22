@@ -1,4 +1,4 @@
-$toolsDir = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools"
+$toolsDir = if ($env:MYMUSIC_TOOLS) { $env:MYMUSIC_TOOLS } else { "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools" }
 if (!(Test-Path $toolsDir)) { 
     New-Item -ItemType Directory -Path $toolsDir | Out-Null
 }

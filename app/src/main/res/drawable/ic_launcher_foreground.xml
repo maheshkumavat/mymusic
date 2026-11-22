@@ -1,44 +1,68 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Primary Rhythmic Wave 1 -->
-    <path
-        android:pathData="M27,67.5 C27,67.5 33.75,40.5 54,40.5 C74.25,40.5 81,67.5 81,67.5"
-        android:strokeWidth="6"
-        android:strokeLineCap="round">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:startX="27"
-                android:startY="40.5"
-                android:endX="81"
-                android:endY="67.5"
-                android:type="linear">
-                <item android:color="#FFFF0080" android:offset="0.0" />
-                <item android:color="#FFFF8C00" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
 
-    <!-- Secondary Intersecting Wave 2 -->
-    <path
-        android:pathData="M27,40.5 C27,40.5 33.75,67.5 54,67.5 C74.25,67.5 81,40.5 81,40.5"
-        android:strokeWidth="6"
-        android:strokeAlpha="0.75"
-        android:strokeLineCap="round">
-        <aapt:attr name="android:strokeColor">
-            <gradient
-                android:startX="27"
-                android:startY="40.5"
-                android:endX="81"
-                android:endY="67.5"
-                android:type="linear">
-                <item android:color="#FFFF0080" android:offset="0.0" />
-                <item android:color="#FFFF8C00" android:offset="1.0" />
-            </gradient>
-        </aapt:attr>
-    </path>
+    <!-- 6 Wave Bars scaled and centered inside the 66dp safe zone (scale 0.46) -->
+    <group
+        android:scaleX="0.46"
+        android:scaleY="0.46"
+        android:translateX="9.15"
+        android:translateY="8.0">
+
+        <!-- Bar 1: x=38, h=30, fill=white -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FF1C1C28"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M45,85 A7,7 0 0,1 52,92 L52,108 A7,7 0 0,1 38,108 L38,92 A7,7 0 0,1 45,85 Z" />
+
+        <!-- Bar 2: x=59, h=62, fill=orange -->
+        <path
+            android:fillColor="#FFF6B96B"
+            android:strokeColor="#FF1C1C28"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M66,69 A7,7 0 0,1 73,76 L73,124 A7,7 0 0,1 59,124 L59,76 A7,7 0 0,1 66,69 Z" />
+
+        <!-- Bar 3: x=80, h=92, fill=white -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FF1C1C28"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M87,54 A7,7 0 0,1 94,61 L94,139 A7,7 0 0,1 80,139 L80,61 A7,7 0 0,1 87,54 Z" />
+
+        <!-- Bar 4: x=101, h=52, fill=orange -->
+        <path
+            android:fillColor="#FFF6B96B"
+            android:strokeColor="#FF1C1C28"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M108,74 A7,7 0 0,1 115,81 L115,119 A7,7 0 0,1 101,119 L101,81 A7,7 0 0,1 108,74 Z" />
+
+        <!-- Bar 5: x=122, h=76, fill=white -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:strokeColor="#FF1C1C28"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M129,62 A7,7 0 0,1 136,69 L136,131 A7,7 0 0,1 122,131 L122,69 A7,7 0 0,1 129,62 Z" />
+
+        <!-- Bar 6: x=143, h=38, fill=orange -->
+        <path
+            android:fillColor="#FFF6B96B"
+            android:strokeColor="#FF1C1C28"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M150,81 A7,7 0 0,1 157,88 L157,112 A7,7 0 0,1 143,112 L143,88 A7,7 0 0,1 150,81 Z" />
+    </group>
 </vector>

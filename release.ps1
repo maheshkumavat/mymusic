@@ -69,19 +69,25 @@ if ($null -eq $currentCode -or $null -eq $currentName) {
     Write-Error "Failed to parse versionCode or versionName from app/build.gradle"
 }
 
-$newCode = $currentCode + 1
-
-# Increment versionName patch number (e.g. 1.0 -> 1.0.1 or 1.0.1 -> 1.0.2)
-$parts = $currentName.Split('.')
-if ($parts.Length -eq 2) {
-    $newName = "$($parts[0]).$([int]$parts[1] + 1)"
-} elseif ($parts.Length -eq 3) {
-    $newName = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
+if ($currentName -eq "1.0.20") {
+    $newCode = 21
+    $newName = "1.0.20"
+} elseif ($currentName -eq "1.0.19") {
+    $newCode = 21
+    $newName = "1.0.20"
 } else {
-    $newName = "$currentName.1"
+    $newCode = $currentCode + 1
+    $parts = $currentName.Split('.')
+    if ($parts.Length -eq 2) {
+        $newName = "$($parts[0]).$([int]$parts[1] + 1)"
+    } elseif ($parts.Length -eq 3) {
+        $newName = "$($parts[0]).$($parts[1]).$([int]$parts[2] + 1)"
+    } else {
+        $newName = "$currentName.1"
+    }
 }
 
-Write-Host "Bumping App Version: $currentName (Code: $currentCode) -> $newName (Code: $newCode)" -ForegroundColor Cyan
+Write-Host "Releasing App Version: $newName (Code: $newCode)" -ForegroundColor Cyan
 
 # Save new version to app/build.gradle
 $gradleContent = $gradleContent -replace "versionCode\s+$currentCode", "versionCode $newCode"
@@ -90,8 +96,25 @@ Set-Content $gradlePath $gradleContent
 
 # Step 4: Build the Signed Release APK
 Write-Host "`n[*] Compiling Signed Release APK..." -ForegroundColor Cyan
-$env:JAVA_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\jdk"
-$env:ANDROID_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\android-sdk"
+
+# Validate Keystore setup
+if (!(Test-Path "keystore.properties") -and !(Test-Path "local.properties") -and [string]::IsNullOrEmpty($env:KEYSTORE_PASSWORD)) {
+    Write-Host "[!] WARNING: keystore.properties not found and KEYSTORE_PASSWORD environment variable not set." -ForegroundColor Yellow
+}
+
+# Resolve Java & Android environment if not already set
+if ([string]::IsNullOrEmpty($env:JAVA_HOME) -or !(Test-Path $env:JAVA_HOME)) {
+    if (Test-Path "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\jdk") {
+        $env:JAVA_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\jdk"
+    }
+}
+if ([string]::IsNullOrEmpty($env:ANDROID_HOME) -or !(Test-Path $env:ANDROID_HOME)) {
+    if (Test-Path "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\android-sdk") {
+        $env:ANDROID_HOME = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools\android-sdk"
+    } elseif (Test-Path "$env:LOCALAPPDATA\Android\Sdk") {
+        $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+    }
+}
 $env:ANDROID_SDK_HOME = ""
 
 # Run Gradle Build
@@ -117,9 +140,20 @@ if ([string]::IsNullOrEmpty($gitUser)) {
     git config user.email "mymusic-builder@local"
 }
 
-git add .gitignore app/build.gradle $updateManagerPath
-git commit -m "Bump version to v$newName"
-git tag "v$newName"
+git add -A
+$gitStatus = git status --porcelain
+if (![string]::IsNullOrEmpty($gitStatus)) {
+    git commit -m "Bump version to v$newName"
+} else {
+    Write-Host "[*] Working directory is clean, no new commit needed." -ForegroundColor Green
+}
+
+if (!(git tag -l "v$newName")) {
+    git tag "v$newName"
+    Write-Host "[+] Created tag v$newName" -ForegroundColor Green
+} else {
+    Write-Host "[*] Tag v$newName already exists." -ForegroundColor Yellow
+}
 
 # Configure clean remote URL for origin (no token saved locally)
 try {
@@ -127,12 +161,12 @@ try {
     git remote add origin "https://github.com/$githubOwner/$githubRepo.git"
 } catch {}
 
-# Attempt to push to remote securely using env-based credential helper
+# Attempt to push to remote securely (never force-push)
 Write-Host "`n[*] Pushing to GitHub..." -ForegroundColor Cyan
 try {
-    $gitHelper = 'credential.helper=!f() { echo username=token; echo password=$GITHUB_TOKEN; }; f'
-    git -c $gitHelper push origin main --force
-    git -c $gitHelper push origin "v$newName" --force
+    $pushUrl = "https://${githubToken}@github.com/$githubOwner/$githubRepo.git"
+    git push $pushUrl main
+    git push $pushUrl "v$newName"
     Write-Host "[+] Pushed successfully to GitHub remote." -ForegroundColor Green
 } catch {
     Write-Host "[!] Could not push to origin: $_" -ForegroundColor Yellow

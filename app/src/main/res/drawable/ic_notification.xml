@@ -3,8 +3,42 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Stylized music note silhouette -->
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M12,2 C6.48,2 2,6.48 2,12 C2,17.52 6.48,22 12,22 C17.52,22 22,17.52 22,12 C22,6.48 17.52,2 12,2 Z M10,16.5 C10,15.12 11.12,14 12.5,14 C13.88,14 15,15.12 15,16.5 C15,17.88 13.88,19 12.5,19 C11.12,19 10,17.88 10,16.5 Z M14,6 L18,6 L18,8 L14,8 L14,14 L12,14 L12,8 C12,6.9 12.9,6 14,6 Z" />
+
+    <!-- 6 Wave Bars, single flat white, no outline, 24dp -->
+    <group
+        android:scaleX="0.14"
+        android:scaleY="0.14"
+        android:translateX="-1.65"
+        android:translateY="-2.0">
+
+        <!-- Bar 1 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M45,85 A7,7 0 0,1 52,92 L52,108 A7,7 0 0,1 38,108 L38,92 A7,7 0 0,1 45,85 Z" />
+
+        <!-- Bar 2 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M66,69 A7,7 0 0,1 73,76 L73,124 A7,7 0 0,1 59,124 L59,76 A7,7 0 0,1 66,69 Z" />
+
+        <!-- Bar 3 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M87,54 A7,7 0 0,1 94,61 L94,139 A7,7 0 0,1 80,139 L80,61 A7,7 0 0,1 87,54 Z" />
+
+        <!-- Bar 4 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M108,74 A7,7 0 0,1 115,81 L115,119 A7,7 0 0,1 101,119 L101,81 A7,7 0 0,1 108,74 Z" />
+
+        <!-- Bar 5 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M129,62 A7,7 0 0,1 136,69 L136,131 A7,7 0 0,1 122,131 L122,69 A7,7 0 0,1 129,62 Z" />
+
+        <!-- Bar 6 -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M150,81 A7,7 0 0,1 157,88 L157,112 A7,7 0 0,1 143,112 L143,88 A7,7 0 0,1 150,81 Z" />
+    </group>
 </vector>

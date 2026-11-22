@@ -10,8 +10,8 @@ android {
         applicationId "com.personal.mymusic"
         minSdk 26
         targetSdk 34
-        versionCode 20
-        versionName "1.0.19"
+        versionCode 21
+        versionName "1.0.20"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -19,12 +19,55 @@ android {
         }
     }
 
+    def keystorePropertiesFile = rootProject.file("keystore.properties")
+    if (!keystorePropertiesFile.exists()) {
+        keystorePropertiesFile = rootProject.file("local.properties")
+    }
+    def keystoreProperties = new Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    }
+
+    def getSignProp = { String propName, List<String> envNames ->
+        def value = keystoreProperties.getProperty(propName)
+        if (value != null && !value.trim().isEmpty()) {
+            return value.trim()
+        }
+        for (String envName : envNames) {
+            def envVal = System.getenv(envName)
+            if (envVal != null && !envVal.trim().isEmpty()) {
+                return envVal.trim()
+            }
+        }
+        return null
+    }
+
+    def resolveKeystoreFile = { String path ->
+        if (!path) return null
+        def f = new File(path)
+        if (f.isAbsolute() && f.exists()) return f
+        def fromRoot = new File(rootProject.projectDir, path)
+        if (fromRoot.exists()) return fromRoot
+        def fromApp = new File(projectDir, path)
+        if (fromApp.exists()) return fromApp
+        return fromRoot
+    }
+
+    def storeFilePath = getSignProp("storeFile", ["KEYSTORE_FILE", "STORE_FILE", "KEYSTORE_PATH"])
+    def storePwd = getSignProp("storePassword", ["KEYSTORE_PASSWORD", "STORE_PASSWORD"])
+    def keyAl = getSignProp("keyAlias", ["KEY_ALIAS", "KEYSTORE_ALIAS"])
+    def keyPwd = getSignProp("keyPassword", ["KEY_PASSWORD"])
+
+    def resolvedKeystoreFile = resolveKeystoreFile(storeFilePath)
+
     signingConfigs {
         release {
-            storeFile file("release.keystore")
-            storePassword "mymusicpassword"
-            keyAlias "releaseKey"
-            keyPassword "mymusicpassword"
+            if (resolvedKeystoreFile != null && storePwd && keyAl && keyPwd) {
+                storeFile resolvedKeystoreFile
+                storePassword storePwd
+                keyAlias keyAl
+                keyPassword keyPwd
+            }
         }
     }
 
@@ -34,6 +77,18 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
+        }
+    }
+
+    gradle.taskGraph.whenReady { taskGraph ->
+        def isRelease = taskGraph.allTasks.any { it.name.toLowerCase().contains("release") }
+        if (isRelease) {
+            if (!storeFilePath || !storePwd || !keyAl || !keyPwd) {
+                throw new GradleException("Release build failed: Missing release signing credentials! Please provide a git-ignored keystore.properties file (with storeFile, storePassword, keyAlias, keyPassword) or set environment variables (KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).")
+            }
+            if (resolvedKeystoreFile == null || !resolvedKeystoreFile.exists()) {
+                throw new GradleException("Release build failed: Keystore file not found at '${storeFilePath}'. Resolved to: '${resolvedKeystoreFile?.absolutePath}'. Ensure the release keystore exists outside the repository tree as configured.")
+            }
         }
     }
     compileOptions {

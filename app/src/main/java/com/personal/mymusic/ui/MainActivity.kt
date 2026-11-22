@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -79,341 +80,317 @@ class MainActivity : ComponentActivity() {
             MyMusicTheme(isDarkTheme = isDarkTheme) {
                 val currentScreen by viewModel.currentScreen.collectAsState()
                 val isPlayerExpanded by viewModel.isPlayerExpanded.collectAsState()
-                
-                // Unified back handler — handles all navigation-level back presses.
-                // viewModel.popBackStack() returns true if it consumed the back press,
-                // false only when on Home with an empty back stack (let the system handle exit).
+
+                // Unified back handler
                 val backStack by viewModel.backStack.collectAsState()
                 BackHandler(enabled = isPlayerExpanded || currentScreen !is AppScreen.Home || backStack.isNotEmpty()) {
                     viewModel.popBackStack()
                 }
-            
-            var showBatteryOptDialog by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) {
-                val prefs = getSharedPreferences("music_prefs", MODE_PRIVATE)
-                val alreadyPrompted = prefs.getBoolean("battery_opt_prompted", false)
-                if (!alreadyPrompted) {
-                    val pm = getSystemService(POWER_SERVICE) as PowerManager
-                    val isIgnoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        pm.isIgnoringBatteryOptimizations(packageName)
-                    } else {
-                        true
-                    }
-                    if (!isIgnoring) {
-                        val brand = Build.BRAND.lowercase()
-                        val manufacturer = Build.MANUFACTURER.lowercase()
-                        val isRestrictive = listOf("xiaomi", "oppo", "vivo", "samsung", "oneplus", "huawei", "realme", "redmi", "poco").any {
-                            brand.contains(it) || manufacturer.contains(it)
+
+                var showBatteryOptDialog by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    val prefs = getSharedPreferences("music_prefs", MODE_PRIVATE)
+                    val alreadyPrompted = prefs.getBoolean("battery_opt_prompted", false)
+                    if (!alreadyPrompted) {
+                        val pm = getSystemService(POWER_SERVICE) as PowerManager
+                        val isIgnoring = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            pm.isIgnoringBatteryOptimizations(packageName)
+                        } else {
+                            true
                         }
-                        if (isRestrictive) {
-                            showBatteryOptDialog = true
+                        if (!isIgnoring) {
+                            val brand = Build.BRAND.lowercase()
+                            val manufacturer = Build.MANUFACTURER.lowercase()
+                            val isRestrictive = listOf("xiaomi", "oppo", "vivo", "samsung", "oneplus", "huawei", "realme", "redmi", "poco").any {
+                                brand.contains(it) || manufacturer.contains(it)
+                            }
+                            if (isRestrictive) {
+                                showBatteryOptDialog = true
+                            }
                         }
                     }
                 }
-            }
 
-            if (showBatteryOptDialog) {
-                AlertDialog(
-                    onDismissRequest = {
-                        getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
-                        showBatteryOptDialog = false
-                    },
-                    title = { Text("Background Playback Optimization", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, color = Color.White) },
-                    text = {
-                        Text(
-                            "Your device may aggressively terminate background apps. To ensure uninterrupted background playback, please configure Battery settings to 'Unrestricted' for MyMusic.",
-                            fontFamily = InterFontFamily,
-                            color = Color.LightGray
-                        )
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
-                                showBatteryOptDialog = false
-                                try {
-                                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                        data = Uri.fromParts("package", packageName, null)
+                // Battery Optimization Dialog in Sketch Outline Style
+                if (showBatteryOptDialog) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
+                            showBatteryOptDialog = false
+                        },
+                        title = {
+                            Text(
+                                "Background Playback Optimization",
+                                fontFamily = PoppinsFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                color = SketchColors.Ink
+                            )
+                        },
+                        text = {
+                            Text(
+                                "Your device may aggressively terminate background apps. To ensure uninterrupted background playback, please configure Battery settings to 'Unrestricted' for MyMusic.",
+                                fontFamily = PoppinsFontFamily,
+                                color = SketchColors.MutedText,
+                                fontSize = 13.sp
+                            )
+                        },
+                        confirmButton = {
+                            SketchButton(
+                                text = "Go to Settings",
+                                onClick = {
+                                    getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
+                                    showBatteryOptDialog = false
+                                    try {
+                                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                            data = Uri.fromParts("package", packageName, null)
+                                        }
+                                        startActivity(intent)
+                                    } catch (e: Exception) {
+                                        // Fallback
                                     }
-                                    startActivity(intent)
-                                } catch (e: Exception) {
-                                    // Fallback
+                                },
+                                backgroundColor = SketchColors.Orange
+                            )
+                        },
+                        dismissButton = {
+                            TextButton(
+                                onClick = {
+                                    getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
+                                    showBatteryOptDialog = false
                                 }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                        ) {
-                            Text("Go to Settings", color = Color.Black)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(
-                            onClick = {
-                                getSharedPreferences("music_prefs", MODE_PRIVATE).edit().putBoolean("battery_opt_prompted", true).apply()
-                                showBatteryOptDialog = false
-                            }
-                        ) {
-                            Text("Later", color = Color.White)
-                        }
-                    },
-                    containerColor = BackgroundEnd
-                )
-            }
-
-            val currentSong by playbackManager.currentSong.collectAsState()
-            val isPlaying by playbackManager.isPlaying.collectAsState()
-            val position by playbackManager.currentPosition.collectAsState()
-            val duration by playbackManager.duration.collectAsState()
-
-            GradientBackground {
-                val updateState by viewModel.updateState.collectAsState()
-
-                when (val state = updateState) {
-                    is UpdateState.UpdateAvailable -> {
-                        AlertDialog(
-                            onDismissRequest = { viewModel.resetUpdateState() },
-                            title = { Text("Update Available", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, color = Color.White) },
-                            text = {
-                                Column {
-                                    Text(
-                                        "A new version (${state.latestVersion}) is available. Would you like to update now?",
-                                        fontFamily = InterFontFamily,
-                                        color = Color.LightGray
-                                    )
-                                    if (state.releaseNotes.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(
-                                            "Release notes:\n${state.releaseNotes}",
-                                            fontFamily = InterFontFamily,
-                                            fontSize = 12.sp,
-                                            color = Color.Gray
-                                        )
-                                    }
-                                }
-                            },
-                            confirmButton = {
-                                Button(
-                                    onClick = {
-                                        viewModel.startUpdateDownload(
-                                            latestVersion = state.latestVersion,
-                                            downloadUrl = state.downloadUrl,
-                                            onError = { errMsg ->
-                                                // Handle error (Toast is shown by UpdateManager)
-                                            }
-                                        )
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AccentColor)
-                                ) {
-                                    Text("Update Now", color = Color.Black)
-                                }
-                            },
-                            dismissButton = {
-                                TextButton(onClick = { viewModel.resetUpdateState() }) {
-                                    Text("Later", color = Color.White)
-                                }
-                            },
-                            containerColor = BackgroundEnd,
-                            tonalElevation = 6.dp
-                        )
-                    }
-                    is UpdateState.Downloading -> {
-                        AlertDialog(
-                            onDismissRequest = { /* Prevent dismiss while downloading */ },
-                            title = { Text("Downloading Update", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold, color = Color.White) },
-                            text = {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    CircularProgressIndicator(color = AccentColor)
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = "Downloading update APK... Once finished, you will be prompted to install it.",
-                                        color = Color.LightGray,
-                                        fontFamily = InterFontFamily,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            },
-                            confirmButton = {},
-                            containerColor = BackgroundEnd
-                        )
-                    }
-                    else -> {}
-                }
-
-                Scaffold(
-                    containerColor = Color.Transparent,
-                    bottomBar = {
-                        Column(
-                            modifier = Modifier.background(Color.Transparent)
-                        ) {
-                            // Mini Player
-                            AnimatedVisibility(
-                                visible = currentSong != null && !isPlayerExpanded,
-                                enter = slideInVertically(
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMediumLow
-                                    )
-                                ) { it },
-                                exit = slideOutVertically(
-                                    animationSpec = spring(
-                                        dampingRatio = Spring.DampingRatioNoBouncy,
-                                        stiffness = Spring.StiffnessMediumLow
-                                    )
-                                ) { it }
                             ) {
-                                currentSong?.let { song ->
-                                    MiniPlayer(
-                                        song = song,
-                                        isPlaying = isPlaying,
-                                        progress = if (duration > 0) position.toFloat() / duration else 0f,
-                                        onPlayPauseClick = { playbackManager.togglePlayPause() },
-                                        onCloseClick = { playbackManager.stop() },
-                                        onClick = { viewModel.setPlayerExpanded(true) }
-                                    )
-                                }
+                                Text("Later", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
                             }
-
-                            // Bottom Navigation Bar
-                            NavigationBar(
-                                containerColor = Color.Transparent,
-                                modifier = Modifier
-                                    .background(SurfaceGlass)
-                                    .border(1.dp, BorderGlass, RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                            ) {
-                                NavigationBarItem(
-                                    selected = currentScreen is AppScreen.Home,
-                                    onClick = { viewModel.navigateTo(AppScreen.Home) },
-                                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                                    label = { Text("Home", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = AccentColor,
-                                        selectedTextColor = AccentColor,
-                                        unselectedIconColor = Color.Gray,
-                                        unselectedTextColor = Color.Gray,
-                                        indicatorColor = Color.Transparent
-                                    )
-                                )
-                                NavigationBarItem(
-                                    selected = currentScreen is AppScreen.Search,
-                                    onClick = { viewModel.navigateTo(AppScreen.Search) },
-                                    icon = { Icon(Icons.Default.Search, contentDescription = "Search") },
-                                    label = { Text("Search", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = AccentColor,
-                                        selectedTextColor = AccentColor,
-                                        unselectedIconColor = Color.Gray,
-                                        unselectedTextColor = Color.Gray,
-                                        indicatorColor = Color.Transparent
-                                    )
-                                )
-                                NavigationBarItem(
-                                    selected = currentScreen is AppScreen.Library || currentScreen is AppScreen.PlaylistDetails,
-                                    onClick = { viewModel.navigateTo(AppScreen.Library) },
-                                    icon = { Icon(Icons.Default.LibraryMusic, contentDescription = "Library") },
-                                    label = { Text("Library", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = AccentColor,
-                                        selectedTextColor = AccentColor,
-                                        unselectedIconColor = Color.Gray,
-                                        unselectedTextColor = Color.Gray,
-                                        indicatorColor = Color.Transparent
-                                    )
-                                )
-                                NavigationBarItem(
-                                    selected = currentScreen is AppScreen.Settings,
-                                    onClick = { viewModel.navigateTo(AppScreen.Settings) },
-                                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                                    label = { Text("Settings", fontFamily = InterFontFamily, fontWeight = FontWeight.Medium) },
-                                    colors = NavigationBarItemDefaults.colors(
-                                        selectedIconColor = AccentColor,
-                                        selectedTextColor = AccentColor,
-                                        unselectedIconColor = Color.Gray,
-                                        unselectedTextColor = Color.Gray,
-                                        indicatorColor = Color.Transparent
-                                    )
-                                )
-                            }
-                        }
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding)
-                    ) {
-                        when (val screen = currentScreen) {
-                            is AppScreen.Home -> HomeScreen(viewModel = viewModel, onPlaylistClick = { id, name ->
-                                viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
-                            })
-                            is AppScreen.Search -> SearchScreen(viewModel = viewModel, onPlaylistClick = { id, name ->
-                                viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
-                            })
-                            is AppScreen.Library -> LibraryScreen(viewModel = viewModel, onPlaylistClick = { id, name ->
-                                viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
-                            })
-                            is AppScreen.PlaylistDetails -> PlaylistDetailsScreen(
-                                playlistId = screen.playlistId,
-                                playlistName = screen.playlistName,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popBackStack() }
-                            )
-                            is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
-                            is AppScreen.AlbumDetails -> AlbumDetailsScreen(
-                                albumId = screen.albumId,
-                                albumName = screen.albumName,
-                                artistName = screen.artistName,
-                                coverUrl = screen.coverUrl,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popBackStack() }
-                            )
-                            is AppScreen.ArtistDetails -> ArtistDetailsScreen(
-                                artistId = screen.artistId,
-                                artistName = screen.artistName,
-                                avatarUrl = screen.avatarUrl,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popBackStack() }
-                            )
-                            is AppScreen.SongDetails -> SongDetailsScreen(
-                                song = screen.song,
-                                viewModel = viewModel,
-                                onBack = { viewModel.popBackStack() }
-                            )
-                            is AppScreen.DeveloperTools -> DeveloperToolsScreen(
-                                viewModel = viewModel,
-                                onBack = { viewModel.popBackStack() }
-                            )
-                        }
-                    }
-                }
-
-                // Full Now Playing View Overlay
-                AnimatedVisibility(
-                    visible = isPlayerExpanded,
-                    enter = slideInVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    ) { it },
-                    exit = slideOutVertically(
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioNoBouncy,
-                            stiffness = Spring.StiffnessMediumLow
-                        )
-                    ) { it }
-                ) {
-                    NowPlayingScreen(
-                        viewModel = viewModel,
-                        onCollapse = { viewModel.setPlayerExpanded(false) }
+                        },
+                        containerColor = Color.White,
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
                     )
+                }
+
+                val currentSong by playbackManager.currentSong.collectAsState()
+                val isPlaying by playbackManager.isPlaying.collectAsState()
+                val position by playbackManager.currentPosition.collectAsState()
+                val duration by playbackManager.duration.collectAsState()
+
+                FaintCirclesBackground {
+                    val updateState by viewModel.updateState.collectAsState()
+
+                    when (val state = updateState) {
+                        is UpdateState.UpdateAvailable -> {
+                            AlertDialog(
+                                onDismissRequest = { viewModel.resetUpdateState() },
+                                title = {
+                                    Text(
+                                        "Update Available",
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SketchColors.Ink
+                                    )
+                                },
+                                text = {
+                                    Column {
+                                        Text(
+                                            "A new version (${state.latestVersion}) is available. Would you like to update now?",
+                                            fontFamily = PoppinsFontFamily,
+                                            color = SketchColors.MutedText,
+                                            fontSize = 13.sp
+                                        )
+                                        if (state.releaseNotes.isNotEmpty()) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                "Release notes:\n${state.releaseNotes}",
+                                                fontFamily = PoppinsFontFamily,
+                                                fontSize = 12.sp,
+                                                color = SketchColors.MutedText
+                                            )
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    SketchButton(
+                                        text = "Update Now",
+                                        onClick = {
+                                            viewModel.startUpdateDownload(
+                                                latestVersion = state.latestVersion,
+                                                downloadUrl = state.downloadUrl,
+                                                onError = {}
+                                            )
+                                        },
+                                        backgroundColor = SketchColors.Orange
+                                    )
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { viewModel.resetUpdateState() }) {
+                                        Text("Later", color = SketchColors.Ink, fontFamily = PoppinsFontFamily)
+                                    }
+                                },
+                                containerColor = Color.White,
+                                shape = RoundedCornerShape(18.dp),
+                                modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
+                            )
+                        }
+                        is UpdateState.Downloading -> {
+                            AlertDialog(
+                                onDismissRequest = {},
+                                title = {
+                                    Text(
+                                        "Downloading Update",
+                                        fontFamily = PoppinsFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SketchColors.Ink
+                                    )
+                                },
+                                text = {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        CircularProgressIndicator(color = SketchColors.Orange)
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(
+                                            text = "Downloading update APK... Once finished, you will be prompted to install it.",
+                                            color = SketchColors.MutedText,
+                                            fontFamily = PoppinsFontFamily,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                },
+                                confirmButton = {},
+                                containerColor = Color.White,
+                                shape = RoundedCornerShape(18.dp),
+                                modifier = Modifier.border(2.dp, SketchColors.Ink, RoundedCornerShape(18.dp))
+                            )
+                        }
+                        else -> {}
+                    }
+
+                    Scaffold(
+                        containerColor = Color.Transparent,
+                        bottomBar = {
+                            Column(
+                                modifier = Modifier.background(Color.Transparent)
+                            ) {
+                                // Mini Player in Outlined Slab Capsule style
+                                AnimatedVisibility(
+                                    visible = currentSong != null && !isPlayerExpanded,
+                                    enter = slideInVertically(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioNoBouncy,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                    ) { it },
+                                    exit = slideOutVertically(
+                                        animationSpec = spring(
+                                            dampingRatio = Spring.DampingRatioNoBouncy,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                    ) { it }
+                                ) {
+                                    currentSong?.let { song ->
+                                        MiniPlayer(
+                                            song = song,
+                                            isPlaying = isPlaying,
+                                            progress = if (duration > 0) position.toFloat() / duration else 0f,
+                                            onPlayPauseClick = { playbackManager.togglePlayPause() },
+                                            onCloseClick = { playbackManager.stop() },
+                                            onClick = { viewModel.setPlayerExpanded(true) }
+                                        )
+                                    }
+                                }
+
+                                // Sketch Bottom Navigation Bar
+                                SketchBottomNav(
+                                    currentScreen = currentScreen,
+                                    onNavigate = { screen -> viewModel.navigateTo(screen) }
+                                )
+                            }
+                        }
+                    ) { innerPadding ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                        ) {
+                            when (val screen = currentScreen) {
+                                is AppScreen.Home -> HomeScreen(
+                                    viewModel = viewModel,
+                                    onPlaylistClick = { id, name ->
+                                        viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                    }
+                                )
+                                is AppScreen.Search -> SearchScreen(
+                                    viewModel = viewModel,
+                                    onPlaylistClick = { id, name ->
+                                        viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                    }
+                                )
+                                is AppScreen.Library -> LibraryScreen(
+                                    viewModel = viewModel,
+                                    onPlaylistClick = { id, name ->
+                                        viewModel.navigateTo(AppScreen.PlaylistDetails(id, name))
+                                    }
+                                )
+                                is AppScreen.PlaylistDetails -> PlaylistDetailsScreen(
+                                    playlistId = screen.playlistId,
+                                    playlistName = screen.playlistName,
+                                    viewModel = viewModel,
+                                    onBack = { viewModel.popBackStack() }
+                                )
+                                is AppScreen.Settings -> SettingsScreen(viewModel = viewModel)
+                                is AppScreen.AlbumDetails -> AlbumDetailsScreen(
+                                    albumId = screen.albumId,
+                                    albumName = screen.albumName,
+                                    artistName = screen.artistName,
+                                    coverUrl = screen.coverUrl,
+                                    viewModel = viewModel,
+                                    onBack = { viewModel.popBackStack() }
+                                )
+                                is AppScreen.ArtistDetails -> ArtistDetailsScreen(
+                                    artistId = screen.artistId,
+                                    artistName = screen.artistName,
+                                    avatarUrl = screen.avatarUrl,
+                                    viewModel = viewModel,
+                                    onBack = { viewModel.popBackStack() }
+                                )
+                                is AppScreen.SongDetails -> SongDetailsScreen(
+                                    song = screen.song,
+                                    viewModel = viewModel,
+                                    onBack = { viewModel.popBackStack() }
+                                )
+                                is AppScreen.DeveloperTools -> DeveloperToolsScreen(
+                                    viewModel = viewModel,
+                                    onBack = { viewModel.popBackStack() }
+                                )
+                            }
+                        }
+                    }
+
+                    // Full Now Playing View Overlay
+                    AnimatedVisibility(
+                        visible = isPlayerExpanded,
+                        enter = slideInVertically(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessLow
+                            )
+                        ) { it },
+                        exit = slideOutVertically(
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ) { it }
+                    ) {
+                        NowPlayingScreen(
+                            viewModel = viewModel,
+                            onCollapse = { viewModel.setPlayerExpanded(false) }
+                        )
+                    }
                 }
             }
         }
     }
-}
 
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
@@ -430,6 +407,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Mini player: outlined slab capsule above bottom nav per design spec
 @Composable
 fun MiniPlayer(
     song: com.personal.mymusic.domain.model.Song,
@@ -439,20 +417,19 @@ fun MiniPlayer(
     onCloseClick: () -> Unit,
     onClick: () -> Unit
 ) {
-    Box(
+    SketchCard(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .border(1.dp, BorderGlass, RoundedCornerShape(24.dp))
-            .clip(RoundedCornerShape(24.dp))
-            .background(SurfaceGlass)
-            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 4.dp),
+        slabColor = SketchColors.Teal,
+        shape = RoundedCornerShape(20.dp),
+        onClick = onClick
     ) {
         Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AsyncImage(
@@ -460,66 +437,73 @@ fun MiniPlayer(
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceContainerLow)
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .border(1.5.dp, SketchColors.Ink, RoundedCornerShape(10.dp))
                 )
 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = song.title,
-                        color = TextPrimary,
-                        fontFamily = InterFontFamily,
-                        fontSize = 14.sp,
+                        color = SketchColors.Ink,
+                        fontFamily = PoppinsFontFamily,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = song.channel,
-                        color = TextSecondary,
-                        fontFamily = InterFontFamily,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal,
+                        color = SketchColors.MutedText,
+                        fontFamily = PoppinsFontFamily,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                IconButton(
+                // Orange circular play button with 2dp ink border and drop
+                SketchIconButton(
                     onClick = onPlayPauseClick,
-                    modifier = Modifier.size(36.dp)
+                    backgroundColor = SketchColors.Orange,
+                    shape = CircleShape,
+                    size = 36.dp,
+                    dropOffset = 2.dp
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play/Pause",
-                        tint = AccentColor,
-                        modifier = Modifier.size(24.dp)
+                        tint = SketchColors.Ink,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
+                Spacer(modifier = Modifier.width(4.dp))
+
                 IconButton(
                     onClick = onCloseClick,
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close Player",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(20.dp)
+                        tint = SketchColors.MutedText,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
 
+            // Thin teal progress indicator
             LinearProgressIndicator(
                 progress = progress.coerceIn(0f, 1f),
-                color = AccentColor,
-                trackColor = BorderGlass,
+                color = SketchColors.Teal,
+                trackColor = SketchColors.FaintCircle,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.5.dp)
+                    .height(3.dp)
             )
         }
     }

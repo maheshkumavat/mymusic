@@ -1,4 +1,4 @@
-$toolsDir = "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools"
+$toolsDir = if ($env:MYMUSIC_TOOLS) { $env:MYMUSIC_TOOLS } else { "c:\Users\mahes\OneDrive\Desktop\mymusic\.tools" }
 $gradleUrl = "https://services.gradle.org/distributions/gradle-8.4-bin.zip"
 $gradleZip = "$toolsDir\gradle.zip"
 $gradleDir = "$toolsDir\gradle-8.4"
